@@ -1,28 +1,42 @@
 <script setup>
+// --- LOGIKA: Diubah dari ProductService ke prodiStore ---
 import { useProdiStore } from '@/stores/prodi';
+import { FilterMatchMode } from '@primevue/core/api'; // <-- DITAMBAHKAN: Untuk filter
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
 
-// --- Setup Store dan State ---
+// Setup Store, State, dan Toast
 const toast = useToast();
 const prodiStore = useProdiStore();
-const { prodiList, isLoading } = storeToRefs(prodiStore); // Ambil state dari store secara reaktif
+const { prodiList, isLoading } = storeToRefs(prodiStore);
 
+// State lokal untuk dialog dan form
 const prodiDialog = ref(false);
 const deleteProdiDialog = ref(false);
-const prodi = ref({}); // Untuk menampung data prodi yang akan dibuat/diedit
+const prodi = ref({});
 const submitted = ref(false);
 
-// Panggil data saat komponen pertama kali dimuat
+// --- DITAMBAHKAN: State untuk Search dan Export ---
+const dt = ref(); // Untuk referensi ke komponen DataTable
+const filters = ref({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
+});
+
+// Mengambil data saat komponen dimuat
 onMounted(() => {
     prodiStore.fetchProdi();
 });
 
-// --- Fungsi-fungsi CRUD ---
+// --- DITAMBAHKAN: Fungsi untuk Export ---
+function exportCSV() {
+    dt.value.exportCSV();
+}
+
+// --- FUNGSI CRUD (TIDAK BERUBAH) ---
 
 function openNew() {
-    prodi.value = {}; // Reset form
+    prodi.value = {};
     submitted.value = false;
     prodiDialog.value = true;
 }
@@ -36,19 +50,17 @@ async function saveProdi() {
     submitted.value = true;
 
     if (!prodi.value.nama_prodi?.trim() || !prodi.value.kode_prodi?.trim()) {
-        return; // Validasi sederhana
+        return;
     }
 
     try {
         if (prodi.value.id) {
-            // Jika ada ID, berarti ini mode Update
             await prodiStore.updateProdi(prodi.value.id, {
                 kode_prodi: prodi.value.kode_prodi,
                 nama_prodi: prodi.value.nama_prodi
             });
             toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Prodi Diperbarui', life: 3000 });
         } else {
-            // Jika tidak ada ID, berarti ini mode Create
             await prodiStore.createProdi({
                 kode_prodi: prodi.value.kode_prodi,
                 nama_prodi: prodi.value.nama_prodi
@@ -63,7 +75,7 @@ async function saveProdi() {
 }
 
 function editProdi(data) {
-    prodi.value = { ...data }; // Salin data ke form
+    prodi.value = { ...data };
     prodiDialog.value = true;
 }
 
@@ -87,48 +99,73 @@ async function deleteProdi() {
 <template>
     <div>
         <div class="card">
-            <Toolbar class="mb-4">
+            <Toolbar class="mb-6">
                 <template #start>
-                    <Button label="Tambah Prodi" icon="pi pi-plus" @click="openNew" />
+                    <Button label="Tambah Prodi" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
+                </template>
+                <template #end>
+                    <Button label="Export" icon="pi pi-upload" severity="secondary" @click="exportCSV($event)" />
                 </template>
             </Toolbar>
 
-            <DataTable :value="prodiList" :loading="isLoading" dataKey="id" responsiveLayout="scroll">
+            <DataTable
+                ref="dt"
+                :value="prodiList"
+                :loading="isLoading"
+                dataKey="id"
+                :paginator="true"
+                :rows="10"
+                :filters="filters"
+                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
+                :rowsPerPageOptions="[5, 10, 25]"
+                currentPageReportTemplate="Menampilkan {first} sampai {last} dari {totalRecords} prodi"
+            >
                 <template #header>
-                    <h4 class="m-0">Manajemen Program Studi</h4>
+                    <div class="flex flex-wrap gap-2 items-center justify-between">
+                        <h4 class="m-0">Manajemen Program Studi</h4>
+                        <IconField>
+                            <InputIcon>
+                                <i class="pi pi-search" />
+                            </InputIcon>
+                            <InputText v-model="filters['global'].value" placeholder="Cari..." />
+                        </IconField>
+                    </div>
                 </template>
 
-                <Column field="kode_prodi" header="Kode Prodi" :sortable="true"></Column>
-                <Column field="nama_prodi" header="Nama Program Studi" :sortable="true"></Column>
-                <Column headerStyle="min-width:10rem;" header="Aksi">
+                <Column field="kode_prodi" header="Kode Prodi" sortable style="min-width: 12rem"></Column>
+                <Column field="nama_prodi" header="Nama Program Studi" sortable style="min-width: 16rem"></Column>
+                <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
-                        <Button icon="pi pi-pencil" class="p-button-rounded p-button-success mr-2" @click="editProdi(slotProps.data)" />
-                        <Button icon="pi pi-trash" class="p-button-rounded p-button-warning" @click="confirmDeleteProdi(slotProps.data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editProdi(slotProps.data)" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteProdi(slotProps.data)" />
                     </template>
                 </Column>
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="prodiDialog" :style="{ width: '450px' }" header="Detail Program Studi" :modal="true" class="p-fluid">
-            <div class="field">
-                <label for="kode_prodi">Kode Prodi</label>
-                <InputText id="kode_prodi" v-model.trim="prodi.kode_prodi" required="true" autofocus :invalid="submitted && !prodi.kode_prodi" />
-                <small class="p-error" v-if="submitted && !prodi.kode_prodi">Kode Prodi harus diisi.</small>
+        <Dialog v-model:visible="prodiDialog" :style="{ width: '450px' }" header="Detail Program Studi" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="kode_prodi" class="block font-bold mb-3">Kode Prodi</label>
+                    <InputText id="kode_prodi" v-model.trim="prodi.kode_prodi" required="true" autofocus :invalid="submitted && !prodi.kode_prodi" fluid />
+                    <small v-if="submitted && !prodi.kode_prodi" class="text-red-500">Kode Prodi harus diisi.</small>
+                </div>
+                <div>
+                    <label for="nama_prodi" class="block font-bold mb-3">Nama Prodi</label>
+                    <InputText id="nama_prodi" v-model.trim="prodi.nama_prodi" required="true" :invalid="submitted && !prodi.nama_prodi" fluid />
+                    <small v-if="submitted && !prodi.nama_prodi" class="text-red-500">Nama Prodi harus diisi.</small>
+                </div>
             </div>
-            <div class="field">
-                <label for="nama_prodi">Nama Prodi</label>
-                <InputText id="nama_prodi" v-model.trim="prodi.nama_prodi" required="true" :invalid="submitted && !prodi.nama_prodi" />
-                <small class="p-error" v-if="submitted && !prodi.nama_prodi">Nama Prodi harus diisi.</small>
-            </div>
+
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Simpan" icon="pi pi-check" text @click="saveProdi" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveProdi" />
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteProdiDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex align-items-center">
-                <i class="pi pi-exclamation-triangle mr-3" style="font-size: 2rem" />
+        <Dialog v-model:visible="deleteProdiDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
                 <span v-if="prodi"
                     >Apakah Anda yakin ingin menghapus <b>{{ prodi.nama_prodi }}</b
                     >?</span
@@ -136,7 +173,7 @@ async function deleteProdi() {
             </div>
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteProdiDialog = false" />
-                <Button label="Ya" icon="pi pi-check" text @click="deleteProdi" />
+                <Button label="Ya" icon="pi pi-check" @click="deleteProdi" />
             </template>
         </Dialog>
     </div>

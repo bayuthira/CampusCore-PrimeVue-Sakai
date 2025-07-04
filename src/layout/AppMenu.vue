@@ -21,9 +21,9 @@ const model = ref([
     {
         label: 'Master Data',
         items: [
-            { label: 'Program Studi', icon: 'pi pi-fw pi-book', to: '/prodi' }
-            // { label: 'Dosen', icon: 'pi pi-fw pi-users', to: '/dosen' },
-            // { label: 'Mahasiswa', icon: 'pi pi-fw pi-user-edit', to: '/mahasiswa' },
+            { label: 'Program Studi', icon: 'pi pi-fw pi-book', to: '/prodi' },
+            { label: 'Dosen', icon: 'pi pi-fw pi-users', to: '/dosen' },
+            { label: 'Mahasiswa', icon: 'pi pi-fw pi-user-edit', to: '/mahasiswa' }
             // { label: 'Mata Kuliah', icon: 'pi pi-fw pi-th-large', to: '/matakuliah' }
         ]
     }

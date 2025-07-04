@@ -18,6 +18,16 @@ const router = createRouter({
                     path: '/prodi',
                     name: 'prodi',
                     component: () => import('@/views/akademik/Prodi.vue')
+                },
+                {
+                    path: '/dosen',
+                    name: 'dosen',
+                    component: () => import('@/views/akademik/Dosen.vue')
+                },
+                {
+                    path: '/mahasiswa',
+                    name: 'mahasiswa',
+                    component: () => import('@/views/akademik/Mahasiswa.vue')
                 }
             ]
         },
