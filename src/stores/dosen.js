@@ -1,12 +1,7 @@
 // src/stores/dosen.js
-import axios from 'axios';
+import apiClient from '@/services/api';
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth';
-
-const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
-    headers: { 'Content-Type': 'application/json' }
-});
 
 apiClient.interceptors.request.use((config) => {
     const authStore = useAuthStore();

@@ -14,6 +14,9 @@ const toast = useToast();
 const mahasiswaStore = useMahasiswaStore();
 const prodiStore = useProdiStore();
 const dt = ref();
+const fileInput = ref(null);
+const importResultDialog = ref(false);
+const importResult = ref(null);
 
 const { mahasiswaList, isLoading } = storeToRefs(mahasiswaStore);
 const { prodiList } = storeToRefs(prodiStore);
@@ -155,6 +158,31 @@ const exportItems = ref([
         }
     }
 ]);
+
+function triggerFileInput() {
+    // Fungsi ini untuk memicu klik pada input file yang tersembunyi
+    fileInput.value.click();
+}
+
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const result = await mahasiswaStore.importFromCSV(formData);
+        importResult.value = result; // Simpan objek hasil sukses
+        importResultDialog.value = true;
+    } catch (error) {
+        // Backend mengirim data error dalam format JSON yang sama
+        importResult.value = error.response?.data || { status: 'ERROR', detail_error: [error.message] };
+        importResultDialog.value = true;
+    }
+
+    event.target.value = '';
+}
 </script>
 
 <template>
@@ -163,6 +191,9 @@ const exportItems = ref([
             <Toolbar class="mb-6">
                 <template #start>
                     <Button label="Tambah Mahasiswa" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
+
+                    <Button label="Import" icon="pi pi-download" severity="secondary" class="mr-2" @click="triggerFileInput" />
+                    <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" accept=".csv" />
                 </template>
 
                 <template #end>
@@ -256,6 +287,38 @@ const exportItems = ref([
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteMahasiswaDialog = false" />
                 <Button label="Ya" icon="pi pi-check" @click="deleteMahasiswa" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="importResultDialog" :style="{ width: '500px' }" header="Hasil Impor CSV" :modal="true">
+            <p></p>
+            <div v-if="importResult">
+                <Message v-if="importResult.status === 'SUKSES'" severity="success" :closable="false"> Impor Berhasil </Message>
+                <Message v-else severity="error" :closable="false">
+                    {{ importResult.status }}
+                </Message>
+
+                <div class="mt-4 text-lg">
+                    <p>
+                        <i class="pi pi-file-import mr-2"></i>
+                        <strong>Total Baris Dipindai:</strong> {{ importResult.total_baris_dipindai }}
+                    </p>
+                    <p>
+                        <i class="pi pi-check-circle mr-2 text-green-500"></i>
+                        <strong>Baris Berhasil Disimpan:</strong> {{ importResult.baris_berhasil_disimpan }}
+                    </p>
+                </div>
+
+                <div v-if="importResult.detail_error && importResult.detail_error.length > 0" class="mt-4">
+                    <strong class="block mb-2">Detail Kesalahan:</strong>
+                    <ul class="list-disc pl-5 m-0 bg-red-50 border border-red-200 text-red-700 p-3 rounded-md">
+                        <li v-for="(err, index) in importResult.detail_error" :key="index">
+                            {{ err }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="OK" icon="pi pi-check" @click="importResultDialog = false" autofocus />
             </template>
         </Dialog>
     </div>

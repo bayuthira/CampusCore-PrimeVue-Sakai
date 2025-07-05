@@ -1,16 +1,8 @@
 // src/stores/auth.js
 
 import router from '@/router';
-import axios from 'axios';
+import apiClient from '@/services/api';
 import { defineStore } from 'pinia';
-
-// Buat instance axios dengan base URL ke API backend kita
-const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL, // <-- Menggunakan variabel dari .env
-    headers: {
-        'Content-Type': 'application/json'
-    }
-});
 
 export const useAuthStore = defineStore('auth', {
     // STATE: Data yang akan kita simpan

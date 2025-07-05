@@ -1,5 +1,5 @@
 import AppLayout from '@/layout/AppLayout.vue';
-import { useAuthStore } from '@/stores/auth'; // <-- 1. IMPORT AUTH STORE
+import { useAuthStore } from '@/stores/auth';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
@@ -12,22 +12,38 @@ const router = createRouter({
                 {
                     path: '/',
                     name: 'dashboard',
-                    component: () => import('@/views/Dashboard.vue')
+                    component: () => import('@/views/Dashboard.vue'),
+                    meta: { requiresAuth: true } // Hanya butuh login, semua role boleh akses
                 },
                 {
                     path: '/prodi',
                     name: 'prodi',
-                    component: () => import('@/views/akademik/Prodi.vue')
+                    component: () => import('@/views/akademik/Prodi.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] } // Hanya SUPER_ADMIN
                 },
                 {
                     path: '/dosen',
                     name: 'dosen',
-                    component: () => import('@/views/akademik/Dosen.vue')
+                    component: () => import('@/views/akademik/Dosen.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] }
                 },
                 {
                     path: '/mahasiswa',
                     name: 'mahasiswa',
-                    component: () => import('@/views/akademik/Mahasiswa.vue')
+                    component: () => import('@/views/akademik/Mahasiswa.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] }
+                },
+                {
+                    path: '/matakuliah',
+                    name: 'matakuliah',
+                    component: () => import('@/views/akademik/MataKuliah.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'KAPRODI'] }
+                },
+                {
+                    path: '/admin/users',
+                    name: 'user-management',
+                    component: () => import('@/views/admin/UserManagement.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] } // Hanya SUPER_ADMIN
                 }
             ]
         },
@@ -37,6 +53,11 @@ const router = createRouter({
             component: () => import('@/views/pages/auth/Login.vue')
         },
         {
+            path: '/access-denied',
+            name: 'accessDenied',
+            component: () => import('@/views/pages/auth/AccessDenied.vue')
+        },
+        {
             path: '/:pathMatch(.*)*',
             name: 'notfound',
             component: () => import('@/views/pages/NotFound.vue')
@@ -44,24 +65,33 @@ const router = createRouter({
     ]
 });
 
-// --- 2. TAMBAHKAN BLOK NAVIGATIONAL GUARD DI SINI ---
+// Navigation Guard (Satpam Router)
 router.beforeEach(async (to, from, next) => {
-    // Daftar halaman yang tidak memerlukan login
-    const publicPages = ['login', 'notfound'];
-    const authRequired = !publicPages.includes(to.name);
-
-    // Panggil auth store
     const authStore = useAuthStore();
+    const isLoggedIn = authStore.isLoggedIn;
 
-    // Logika Satpam:
-    if (authRequired && !authStore.isLoggedIn) {
-        // Jika halaman butuh login, TAPI pengguna belum login...
-        // ...lempar dia kembali ke halaman login.
-        return next('/login');
-    } else if (!authRequired && authStore.isLoggedIn && to.name === 'login') {
-        // Jika pengguna sudah login, TAPI mencoba mengakses halaman login...
-        // ...arahkan dia ke dashboard.
-        return next('/');
+    // Cek apakah halaman tujuan butuh otentikasi
+    if (to.meta.requiresAuth) {
+        if (!isLoggedIn) {
+            // Jika butuh login tapi belum login, lempar ke halaman login
+            return next({ name: 'login' });
+        }
+
+        // Cek apakah halaman butuh role tertentu
+        const requiredRoles = to.meta.roles;
+        if (requiredRoles && requiredRoles.length > 0) {
+            const userRoles = authStore.userData?.roles || [];
+            // Cek apakah user memiliki salah satu role yang dibutuhkan
+            const hasPermission = requiredRoles.some((role) => userRoles.includes(role));
+
+            if (!hasPermission) {
+                // Jika tidak punya izin, lempar ke halaman Access Denied
+                return next({ name: 'accessDenied' });
+            }
+        }
+    } else if (to.name === 'login' && isLoggedIn) {
+        // Jika sudah login tapi mencoba akses halaman login, lempar ke dashboard
+        return next({ name: 'dashboard' });
     }
 
     // Jika semua kondisi aman, izinkan pengguna melanjutkan.

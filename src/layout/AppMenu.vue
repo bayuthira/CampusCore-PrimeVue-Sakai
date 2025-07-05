@@ -1,18 +1,20 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import AppMenuItem from './AppMenuItem.vue';
 
 const authStore = useAuthStore();
+
+// --- DIKEMBALIKAN: Computed property untuk nama user ---
 const userName = computed(() => authStore.userData?.full_name || 'User');
 
-const model = ref([
+// Definisikan semua kemungkinan menu beserta role yang dibutuhkan
+const fullMenu = [
+    // --- DIKEMBALIKAN: Item menu untuk info user ---
     {
-        // Ini adalah item untuk menampilkan info user
-        // Tidak punya 'to' jadi tidak bisa diklik
-        label: userName, // Labelnya kita ambil dari computed property
+        label: userName,
         icon: 'pi pi-fw pi-user',
-        class: 'user-info-menu' // Kita beri class khusus untuk styling
+        class: 'user-info-menu' // Class ini agar tidak bisa diklik
     },
     {
         label: 'Home',
@@ -20,15 +22,44 @@ const model = ref([
     },
     {
         label: 'Master Data',
+        roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'KAPRODI'],
         items: [
-            { label: 'Program Studi', icon: 'pi pi-fw pi-book', to: '/prodi' },
-            { label: 'Dosen', icon: 'pi pi-fw pi-users', to: '/dosen' },
-            { label: 'Mahasiswa', icon: 'pi pi-fw pi-user-edit', to: '/mahasiswa' }
-            // { label: 'Mata Kuliah', icon: 'pi pi-fw pi-th-large', to: '/matakuliah' }
+            { label: 'Program Studi', icon: 'pi pi-fw pi-book', to: '/prodi', roles: ['SUPER_ADMIN'] },
+            { label: 'Dosen', icon: 'pi pi-fw pi-users', to: '/dosen', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] },
+            { label: 'Mahasiswa', icon: 'pi pi-fw pi-user-edit', to: '/mahasiswa', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] },
+            { label: 'Mata Kuliah', icon: 'pi pi-fw pi-th-large', to: '/matakuliah', roles: ['SUPER_ADMIN', 'KAPRODI'] }
         ]
+    },
+    {
+        label: 'Administrasi',
+        roles: ['SUPER_ADMIN'], // Kategori menu ini hanya untuk SUPER_ADMIN
+        items: [{ label: 'Manajemen User', icon: 'pi pi-fw pi-users', to: '/admin/users', roles: ['SUPER_ADMIN'] }]
     }
-    // Tambahkan menu lain di sini nanti
-]);
+];
+
+// 'model' sekarang adalah computed property yang menyaring menu
+const model = computed(() => {
+    const userRoles = authStore.userData?.roles || [];
+
+    const filterMenu = (menuItems) => {
+        return menuItems
+            .filter((item) => {
+                if (!item.roles) {
+                    return true;
+                }
+                const hasPermission = item.roles.some((role) => userRoles.includes(role));
+                return hasPermission;
+            })
+            .map((item) => {
+                if (item.items) {
+                    return { ...item, items: filterMenu(item.items) };
+                }
+                return item;
+            });
+    };
+
+    return filterMenu(fullMenu);
+});
 </script>
 
 <template>
