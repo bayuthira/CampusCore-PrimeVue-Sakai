@@ -94,6 +94,17 @@ export const useMahasiswaStore = defineStore('mahasiswa', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async downloadTemplateCSV() {
+            try {
+                const response = await apiClient.get('/mahasiswa/template-csv', {
+                    responseType: 'blob' // Penting: Memberitahu axios untuk mengharapkan file
+                });
+                return response.data; // Mengembalikan data file sebagai blob
+            } catch (e) {
+                console.error('Gagal mengunduh template.', e);
+                throw new Error('Gagal mengunduh template.');
+            }
         }
     }
 });

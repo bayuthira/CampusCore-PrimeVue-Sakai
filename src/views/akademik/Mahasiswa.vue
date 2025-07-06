@@ -183,6 +183,34 @@ async function handleFileUpload(event) {
 
     event.target.value = '';
 }
+
+async function downloadTemplate() {
+    try {
+        const blob = await mahasiswaStore.downloadTemplateCSV();
+        // Buat URL sementara untuk file blob
+        const url = window.URL.createObjectURL(new Blob([blob]));
+
+        // Buat link <a> tersembunyi untuk memicu download
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'template-mahasiswa.csv'); // Nama file yang akan diunduh
+        document.body.appendChild(link);
+
+        // Klik link tersebut secara otomatis
+        link.click();
+
+        // Hapus link setelah selesai
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        toast.add({
+            severity: 'error',
+            summary: 'Gagal',
+            detail: error.message,
+            life: 3000
+        });
+    }
+}
 </script>
 
 <template>
@@ -194,6 +222,8 @@ async function handleFileUpload(event) {
 
                     <Button label="Import" icon="pi pi-download" severity="secondary" class="mr-2" @click="triggerFileInput" />
                     <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" accept=".csv" />
+
+                    <Button label="Unduh Template" icon="pi pi-download" severity="secondary" class="mr-2" @click="downloadTemplate" />
                 </template>
 
                 <template #end>
