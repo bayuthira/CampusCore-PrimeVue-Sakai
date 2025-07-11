@@ -43,7 +43,13 @@ const router = createRouter({
                     path: '/admin/users',
                     name: 'user-management',
                     component: () => import('@/views/admin/UserManagement.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] } // Hanya SUPER_ADMIN
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
+                },
+                {
+                    path: '/aset/ruangan', // Path baru
+                    name: 'manajemen-ruangan',
+                    component: () => import('@/views/fasilitas/Ruangan.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
                 }
             ]
         },

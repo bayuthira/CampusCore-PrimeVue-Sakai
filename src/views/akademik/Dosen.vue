@@ -129,7 +129,16 @@ async function saveDosen() {
         dosenDialog.value = false;
         dosen.value = {};
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menyimpan', life: 3000 });
+        // --- PERBAIKAN DI SINI ---
+        // Ambil pesan error spesifik dari backend, jika tidak ada, gunakan pesan default.
+        const errorMessage = error.response?.data?.error || 'Terjadi kesalahan saat menyimpan';
+
+        toast.add({
+            severity: 'error',
+            summary: 'Gagal',
+            detail: errorMessage, // Gunakan pesan dari backend
+            life: 4000 // Durasi sedikit lebih lama agar bisa dibaca
+        });
     }
 }
 

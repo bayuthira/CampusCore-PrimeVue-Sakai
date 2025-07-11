@@ -31,6 +31,11 @@ const fullMenu = [
         ]
     },
     {
+        label: 'Aset & Fasilitas', // Nama kategori bisa disesuaikan
+        roles: ['SUPER_ADMIN', 'STAF_BAUM'],
+        items: [{ label: 'Manajemen Ruangan', icon: 'pi pi-fw pi-building', to: '/aset/ruangan', roles: ['SUPER_ADMIN', 'STAF_BAUM'] }]
+    },
+    {
         label: 'Administrasi',
         roles: ['SUPER_ADMIN'], // Kategori menu ini hanya untuk SUPER_ADMIN
         items: [{ label: 'Manajemen User', icon: 'pi pi-fw pi-users', to: '/admin/users', roles: ['SUPER_ADMIN'] }]
