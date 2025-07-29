@@ -271,8 +271,8 @@ async function downloadTemplate() {
                 <Column field="nama_prodi" header="Program Studi" sortable style="min-width: 16rem"></Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editMahasiswa(slotProps.data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteMahasiswa(slotProps.data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editMahasiswa(slotProps.data)" v-tooltip.top="'Edit Data'" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteMahasiswa(slotProps.data)" v-tooltip.top="'Hapus Data'" />
                     </template>
                 </Column>
             </DataTable>

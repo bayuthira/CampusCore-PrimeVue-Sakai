@@ -46,9 +46,21 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
                 },
                 {
-                    path: '/aset/ruangan', // Path baru
+                    path: '/aset/ruangan',
                     name: 'manajemen-ruangan',
                     component: () => import('@/views/fasilitas/Ruangan.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                },
+                {
+                    path: '/aset/jenis',
+                    name: 'manajemen-jenis-aset',
+                    component: () => import('@/views/aset/JenisAset.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                },
+                {
+                    path: '/aset/item',
+                    name: 'manajemen-aset',
+                    component: () => import('@/views/aset/ManajemenAset.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
                 }
             ]

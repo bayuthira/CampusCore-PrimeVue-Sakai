@@ -145,8 +145,8 @@ async function deleteProdi() {
                 <Column field="nama_prodi" header="Nama Program Studi" sortable style="min-width: 16rem"></Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editProdi(slotProps.data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteProdi(slotProps.data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editProdi(slotProps.data)" v-tooltip.top="'Edit Data'" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteProdi(slotProps.data)" v-tooltip.top="'Hapus Data'" />
                     </template>
                 </Column>
             </DataTable>

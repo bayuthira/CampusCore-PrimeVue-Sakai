@@ -14,7 +14,10 @@ export const useRuanganStore = defineStore('ruangan', {
             this.error = null;
             try {
                 const response = await apiClient.get('/aset/ruangan'); // Endpoint diperbarui
-                this.ruanganList = response.data;
+                this.ruanganList = response.data.map((ruangan) => ({
+                    ...ruangan,
+                    luas: ruangan.panjang && ruangan.lebar ? ruangan.panjang * ruangan.lebar : 0
+                }));
             } catch (e) {
                 this.error = 'Gagal mengambil data ruangan.';
             } finally {

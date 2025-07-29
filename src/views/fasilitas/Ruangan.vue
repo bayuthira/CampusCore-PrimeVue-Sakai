@@ -64,7 +64,8 @@ function hideDialog() {
 
 async function saveRuangan() {
     submitted.value = true;
-    if (!ruangan.value.nama_ruangan?.trim() || !ruangan.value.kode_ruangan?.trim() || !ruangan.value.kapasitas) {
+    if (!ruangan.value.nama_ruangan?.trim() || !ruangan.value.kode_ruangan?.trim() || ruangan.value.kapasitas == null || ruangan.value.panjang == null || ruangan.value.lebar == null) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Semua field wajib diisi.', life: 3000 });
         return;
     }
 
@@ -72,7 +73,9 @@ async function saveRuangan() {
         const payload = {
             kode_ruangan: ruangan.value.kode_ruangan,
             nama_ruangan: ruangan.value.nama_ruangan,
-            kapasitas: ruangan.value.kapasitas
+            kapasitas: ruangan.value.kapasitas,
+            panjang: ruangan.value.panjang,
+            lebar: ruangan.value.lebar
         };
         if (ruangan.value.id) {
             await ruanganStore.updateRuangan(ruangan.value.id, payload);
@@ -157,10 +160,17 @@ async function deleteRuangan() {
                 <Column field="kode_ruangan" header="Kode Ruangan" sortable style="min-width: 12rem"></Column>
                 <Column field="nama_ruangan" header="Nama Ruangan" sortable style="min-width: 16rem"></Column>
                 <Column field="kapasitas" header="Kapasitas" sortable style="min-width: 8rem"></Column>
+                <Column field="panjang" header="Panjang (m)" sortable style="min-width: 8rem"></Column>
+                <Column field="lebar" header="Lebar (m)" sortable style="min-width: 8rem"></Column>
+                <Column field="luas" header="Luas (m²)" sortable style="min-width: 8rem">
+                    <template #body="slotProps">
+                        {{ slotProps.data.luas > 0 ? parseFloat(slotProps.data.luas).toFixed(2) : '-' }}
+                    </template>
+                </Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editRuangan(slotProps.data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteRuangan(slotProps.data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editRuangan(slotProps.data)" v-tooltip.top="'Edit Data'" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteRuangan(slotProps.data)" v-tooltip.top="'Hapus Data'" />
                     </template>
                 </Column>
             </DataTable>
@@ -180,8 +190,19 @@ async function deleteRuangan() {
                 </div>
                 <div>
                     <label for="kapasitas" class="block font-bold mb-3">Kapasitas</label>
-                    <InputNumber id="kapasitas" v-model="ruangan.kapasitas" required="true" :invalid="submitted && !ruangan.kapasitas" />
+                    <InputNumber id="kapasitas" v-model="ruangan.kapasitas" required="true" :invalid="submitted && !ruangan.kapasitas" fluid />
                     <small v-if="submitted && !ruangan.kapasitas" class="text-red-500">Kapasitas harus diisi.</small>
+                </div>
+                <div>
+                    <label for="panjang" class="block font-bold mb-3">Panjang (meter)</label>
+                    <InputNumber id="panjang" v-model="ruangan.panjang" mode="decimal" :minFractionDigits="2" fluid />
+                    <small v-if="submitted && ruangan.panjang == null" class="text-red-500">Panjang harus diisi.</small>
+                </div>
+
+                <div>
+                    <label for="lebar" class="block font-bold mb-3">Lebar (meter)</label>
+                    <InputNumber id="lebar" v-model="ruangan.lebar" mode="decimal" :minFractionDigits="2" fluid />
+                    <small v-if="submitted && ruangan.lebar == null" class="text-red-500">Lebar harus diisi.</small>
                 </div>
             </div>
             <template #footer>
