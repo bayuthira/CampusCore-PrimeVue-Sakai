@@ -9,20 +9,38 @@ const apiClient = axios.create({
     }
 });
 
-// Interceptor ini akan berjalan SETIAP KALI ada request dibuat menggunakan apiClient
+// Interceptor untuk MENAMBAHKAN token ke setiap request
 apiClient.interceptors.request.use(
     (config) => {
-        // Panggil useAuthStore di dalam interceptor, ini cara yang aman
         const authStore = useAuthStore();
-        const token = authStore.token;
-
-        if (token) {
-            // Jika ada token, tambahkan ke header Authorization
-            config.headers.Authorization = `Bearer ${token}`;
+        if (authStore.token) {
+            config.headers.Authorization = `Bearer ${authStore.token}`;
         }
         return config;
     },
     (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// --- DITAMBAHKAN ---
+// Interceptor untuk MENANGANI response error (misal: 401 Unauthorized)
+apiClient.interceptors.response.use(
+    (response) => {
+        // Jika response sukses (status 2xx), langsung kembalikan
+        return response;
+    },
+    (error) => {
+        // Cek jika ada response error dari server
+        if (error.response) {
+            // Jika statusnya 401 (Token tidak valid/kedaluwarsa)
+            if (error.response.status === 401) {
+                const authStore = useAuthStore();
+                // Panggil aksi logout yang sudah kita buat
+                authStore.logout();
+            }
+        }
+        // Kembalikan error agar bisa ditangani juga oleh komponen jika perlu
         return Promise.reject(error);
     }
 );

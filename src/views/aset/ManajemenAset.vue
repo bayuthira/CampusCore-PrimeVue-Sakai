@@ -2,23 +2,35 @@
 import { useAsetStore } from '@/stores/aset';
 import { useJenisAsetStore } from '@/stores/jenisAset';
 import { useLookupStore } from '@/stores/lookup';
+import { useRuanganStore } from '@/stores/ruangan';
 import { FilterMatchMode } from '@primevue/core/api';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
+import * as XLSX from 'xlsx';
 
 // --- Setup ---
 const toast = useToast();
 const asetStore = useAsetStore();
 const jenisAsetStore = useJenisAsetStore();
 const lookupStore = useLookupStore();
+const ruanganStore = useRuanganStore();
+const historiDialog = ref(false);
+const asetHistori = ref([]);
+const selectedAset = ref({});
 
 const { asetList, isLoading } = storeToRefs(asetStore);
 const { jenisAsetList } = storeToRefs(jenisAsetStore);
 const { kondisiAset } = storeToRefs(lookupStore);
+const { ruanganList } = storeToRefs(ruanganStore);
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
+const pindahDialog = ref(false);
+const asetUntukPindah = ref({});
 const aset = ref({});
 const submitted = ref(false);
 const dt = ref();
@@ -30,6 +42,7 @@ onMounted(() => {
     asetStore.fetchAset();
     jenisAsetStore.fetchJenisAset();
     lookupStore.fetchKondisiAset();
+    ruanganStore.fetchRuangan();
 });
 
 function formatDate(date) {
@@ -113,6 +126,83 @@ async function deleteData() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
     }
 }
+
+function openPindahDialog(data) {
+    asetUntukPindah.value = {
+        id: data.id,
+        nama_aset: data.nama_aset,
+        ke_ruangan_id: null,
+        catatan: ''
+    };
+    pindahDialog.value = true;
+}
+
+async function savePerpindahan() {
+    if (!asetUntukPindah.value.ke_ruangan_id) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Ruangan tujuan harus dipilih.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = {
+            ke_ruangan_id: asetUntukPindah.value.ke_ruangan_id,
+            catatan: asetUntukPindah.value.catatan
+        };
+        await asetStore.pindahkanAset(asetUntukPindah.value.id, payload);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Aset berhasil dipindahkan', life: 3000 });
+        pindahDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memindahkan aset', life: 3000 });
+    }
+}
+
+async function openHistoriDialog(data) {
+    selectedAset.value = data;
+    try {
+        asetHistori.value = await asetStore.fetchAsetHistori(data.id);
+        historiDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Tidak dapat memuat histori aset.', life: 3000 });
+    }
+}
+
+function formatDateTime(value) {
+    if (!value) return '';
+    return new Date(value).toLocaleString('id-ID', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    });
+}
+
+// --- Export Functions ---
+const exportItems = ref([
+    { label: 'CSV', icon: 'pi pi-file', command: () => dt.value.exportCSV() },
+    { label: 'Excel', icon: 'pi pi-file-excel', command: exportExcel },
+    { label: 'PDF', icon: 'pi pi-file-pdf', command: exportPDF }
+]);
+
+function exportExcel() {
+    const data = asetList.value.map((item) => ({
+        'Kode Aset': item.kode_aset,
+        'Nama Aset': item.nama_aset,
+        'Jenis Aset': item.nama_jenis,
+        Lokasi: item.nama_ruangan || '-',
+        Kondisi: item.kondisi,
+        'Tanggal Pembelian': item.tanggal_pembelian
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Aset');
+    XLSX.writeFile(workbook, 'data-aset.xlsx');
+}
+
+function exportPDF() {
+    const doc = new jsPDF();
+    const tableHead = [['Kode Aset', 'Nama Aset', 'Jenis Aset', 'Lokasi', 'Kondisi', 'Tgl. Pembelian']];
+    const tableBody = asetList.value.map((item) => [item.kode_aset, item.nama_aset, item.nama_jenis, item.nama_ruangan || '-', item.kondisi, item.tanggal_pembelian]);
+    autoTable(doc, { head: tableHead, body: tableBody });
+    doc.save('data-aset.pdf');
+}
 </script>
 
 <template>
@@ -122,10 +212,14 @@ async function deleteData() {
                 <template #start>
                     <Button label="Tambah Aset" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
                 </template>
+                <template #end>
+                    <SplitButton label="Export" icon="pi pi-upload" :model="exportItems" severity="secondary"></SplitButton>
+                </template>
             </Toolbar>
 
             <DataTable
                 ref="dt"
+                export-filename="data-aset"
                 :value="asetList"
                 :loading="isLoading"
                 dataKey="id"
@@ -151,10 +245,17 @@ async function deleteData() {
                 <Column field="nama_jenis" header="Jenis Aset" sortable style="min-width: 12rem"></Column>
                 <Column field="kondisi" header="Kondisi" sortable style="min-width: 10rem"></Column>
                 <Column field="tanggal_pembelian" header="Tgl. Pembelian" sortable style="min-width: 10rem"></Column>
+                <Column field="nama_ruangan" header="Lokasi Ruangan" sortable style="min-width: 12rem">
+                    <template #body="slotProps">
+                        <span>{{ slotProps.data.nama_ruangan || '-' }}</span>
+                    </template>
+                </Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
+                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" v-tooltip.top="'Edit Data'" />
+                        <Button icon="pi pi-arrows-h" outlined rounded severity="secondary" class="mr-2" @click="openPindahDialog(slotProps.data)" v-tooltip.top="'Pindahkan Aset'" />
+                        <Button icon="pi pi-history" outlined rounded severity="info" class="mr-2" @click="openHistoriDialog(slotProps.data)" v-tooltip.top="'Lihat Histori'" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" v-tooltip.top="'Hapus Data'" />
                     </template>
                 </Column>
             </DataTable>
@@ -204,6 +305,56 @@ async function deleteData() {
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteDialog = false" />
                 <Button label="Ya" icon="pi pi-check" @click="deleteData" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="pindahDialog" :style="{ width: '450px' }" :header="`Pindahkan Aset: ${asetUntukPindah.nama_aset}`" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="ruangan_tujuan" class="block font-bold mb-3">Pindahkan Ke Ruangan</label>
+                    <Dropdown id="ruangan_tujuan" v-model="asetUntukPindah.ke_ruangan_id" :options="ruanganList" optionLabel="nama_ruangan" optionValue="id" placeholder="Pilih Ruangan Tujuan" fluid />
+                </div>
+                <div>
+                    <label for="catatan" class="block font-bold mb-3">Catatan</label>
+                    <Textarea id="catatan" v-model.trim="asetUntukPindah.catatan" rows="3" fluid />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="pindahDialog = false" />
+                <Button label="Simpan" icon="pi pi-check" @click="savePerpindahan" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="historiDialog" :style="{ width: '600px' }" :header="`Histori Aset: ${selectedAset.nama_aset}`" :modal="true">
+            <Timeline :value="asetHistori" align="alternate" class="customized-timeline">
+                <template #marker="slotProps">
+                    <span class="flex w-8 h-8 items-center justify-center text-white rounded-full z-10 shadow-sm" style="background-color: #607d8b">
+                        <i class="pi pi-bookmark"></i>
+                    </span>
+                </template>
+                <template #content="slotProps">
+                    <Card class="mt-3">
+                        <template #title>
+                            {{ slotProps.item.status }}
+                        </template>
+                        <template #subtitle> {{ formatDateTime(slotProps.item.tanggal_kejadian) }} oleh {{ slotProps.item.nama_user_aksi }} </template>
+                        <template #content>
+                            <div v-if="slotProps.item.status === 'Dipindahkan'">
+                                <p>
+                                    <i class="pi pi-arrow-right-arrow-left mr-2"></i>
+                                    Dari <strong>{{ slotProps.item.dari_ruangan || '-' }}</strong> ke <strong>{{ slotProps.item.ke_ruangan }}</strong>
+                                </p>
+                            </div>
+                            <p v-if="slotProps.item.catatan">
+                                <i class="pi pi-align-left mr-2"></i>
+                                Catatan: {{ slotProps.item.catatan }}
+                            </p>
+                        </template>
+                    </Card>
+                </template>
+            </Timeline>
+            <template #footer>
+                <Button label="Tutup" icon="pi pi-times" @click="historiDialog = false" class="p-button-text" />
             </template>
         </Dialog>
     </div>

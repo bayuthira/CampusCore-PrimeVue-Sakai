@@ -59,6 +59,32 @@ export const useAsetStore = defineStore('aset', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async pindahkanAset(asetId, data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.post(`/aset/item/${asetId}/pindahkan`, data);
+                await this.fetchAset(); // Refresh data tabel setelah berhasil
+            } catch (e) {
+                this.error = 'Gagal memindahkan aset.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async fetchAsetHistori(asetId) {
+            this.isLoading = true; // Gunakan loading state yang ada
+            this.error = null;
+            try {
+                const response = await apiClient.get(`/aset/item/${asetId}/histori`);
+                return response.data; // Langsung kembalikan data histori
+            } catch (e) {
+                this.error = 'Gagal mengambil data histori aset.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });

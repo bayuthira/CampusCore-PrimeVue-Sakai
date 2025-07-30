@@ -36,7 +36,8 @@ const fullMenu = [
         items: [
             { label: 'Manajemen Ruangan', icon: 'pi pi-fw pi-building', to: '/aset/ruangan', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
             { label: 'Manajemen Jenis Aset', icon: 'pi pi-fw pi-tags', to: '/aset/jenis', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
-            { label: 'Manajemen Aset', icon: 'pi pi-fw pi-box', to: '/aset/item', roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+            { label: 'Manajemen Aset', icon: 'pi pi-fw pi-box', to: '/aset/item', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
+            { label: 'Manajemen Aset Habis Pakai', icon: 'pi pi-fw pi-box', to: '/aset/konsumsi', roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
         ]
     },
     {
