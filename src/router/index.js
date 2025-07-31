@@ -94,7 +94,7 @@ const router = createRouter({
 
 // Navigation Guard (Satpam Router)
 router.beforeEach(async (to, from, next) => {
-    const defaultTitle = 'SIKT';
+    const defaultTitle = import.meta.env.VITE_APP_NAME || 'SIKT';
     document.title = to.meta.title ? `${to.meta.title} | ${defaultTitle}` : defaultTitle;
     const authStore = useAuthStore();
     const isLoggedIn = authStore.isLoggedIn;

@@ -27,6 +27,8 @@ const handleLogout = () => {
         }
     });
 };
+
+const appName = import.meta.env.VITE_APP_NAME;
 </script>
 
 <template>
@@ -54,7 +56,7 @@ const handleLogout = () => {
                     </g>
                 </svg>
 
-                <span>SAKAI</span>
+                <span>{{ appName }}</span>
             </router-link>
         </div>
 

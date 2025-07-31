@@ -34,6 +34,10 @@ const handleLogin = async () => {
     }
     isLoading.value = false;
 };
+
+// Ambil nama dari .env
+const appName = import.meta.env.VITE_APP_NAME || 'SIKT';
+const appLongName = import.meta.env.VITE_APP_LONG_NAME || 'Sistem Informasi Kampus Terpadu';
 </script>
 
 <template>
@@ -54,8 +58,8 @@ const handleLogin = async () => {
                                 fill="var(--primary-color)"
                             />
                         </svg>
-                        <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">Selamat Datang!</div>
-                        <span class="text-muted-color font-medium">Sistem Informasi Kampus Terpadu</span>
+                        <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">{{ appName }}</div>
+                        <span class="text-muted-color font-medium" v-html="appLongName"></span>
                     </div>
 
                     <form @submit.prevent="handleLogin">
