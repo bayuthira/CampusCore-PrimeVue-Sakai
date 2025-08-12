@@ -60,14 +60,14 @@ export const useAsetStore = defineStore('aset', {
                 this.isLoading = false;
             }
         },
-        async pindahkanAset(asetId, data) {
+        async tambahHistori(asetId, data) {
             this.isLoading = true;
             this.error = null;
             try {
-                await apiClient.post(`/aset/item/${asetId}/pindahkan`, data);
-                await this.fetchAset(); // Refresh data tabel setelah berhasil
+                await apiClient.post(`/aset/item/${asetId}/histori`, data);
+                await this.fetchAset(); // Refresh data aset (mungkin lokasinya berubah)
             } catch (e) {
-                this.error = 'Gagal memindahkan aset.';
+                this.error = 'Gagal menambah histori aset.';
                 throw e;
             } finally {
                 this.isLoading = false;

@@ -24,13 +24,13 @@ const selectedAset = ref({});
 
 const { asetList, isLoading } = storeToRefs(asetStore);
 const { jenisAsetList } = storeToRefs(jenisAsetStore);
-const { kondisiAset } = storeToRefs(lookupStore);
+const { kondisiAset, asetHistoriStatuses } = storeToRefs(lookupStore);
 const { ruanganList } = storeToRefs(ruanganStore);
 
+const historiUpdateDialog = ref(false);
+const historiData = ref({});
 const dialog = ref(false);
 const deleteDialog = ref(false);
-const pindahDialog = ref(false);
-const asetUntukPindah = ref({});
 const aset = ref({});
 const submitted = ref(false);
 const dt = ref();
@@ -43,6 +43,7 @@ onMounted(() => {
     jenisAsetStore.fetchJenisAset();
     lookupStore.fetchKondisiAset();
     ruanganStore.fetchRuangan();
+    lookupStore.fetchAsetHistoriStatuses();
 });
 
 function formatDate(date) {
@@ -127,32 +128,47 @@ async function deleteData() {
     }
 }
 
-function openPindahDialog(data) {
-    asetUntukPindah.value = {
+function openHistoriUpdateDialog(data) {
+    historiData.value = {
         id: data.id,
         nama_aset: data.nama_aset,
+        status: null,
         ke_ruangan_id: null,
         catatan: ''
     };
-    pindahDialog.value = true;
+    historiUpdateDialog.value = true;
 }
 
-async function savePerpindahan() {
-    if (!asetUntukPindah.value.ke_ruangan_id) {
+async function saveHistoriUpdate() {
+    if (!historiData.value.status) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Status histori harus dipilih.', life: 3000 });
+        return;
+    }
+    if (historiData.value.status === 'Dipindahkan' && !historiData.value.ke_ruangan_id) {
         toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Ruangan tujuan harus dipilih.', life: 3000 });
         return;
     }
 
     try {
         const payload = {
-            ke_ruangan_id: asetUntukPindah.value.ke_ruangan_id,
-            catatan: asetUntukPindah.value.catatan
+            status: historiData.value.status,
+            catatan: historiData.value.catatan
         };
-        await asetStore.pindahkanAset(asetUntukPindah.value.id, payload);
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Aset berhasil dipindahkan', life: 3000 });
-        pindahDialog.value = false;
+
+        if (['Dipindahkan', 'Ditempatkan'].includes(historiData.value.status)) {
+            // Validasi tambahan
+            if (!historiData.value.ke_ruangan_id) {
+                toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Ruangan tujuan harus dipilih.', life: 3000 });
+                return; // Hentikan proses jika ruangan belum dipilih
+            }
+            payload.ke_ruangan_id = historiData.value.ke_ruangan_id;
+        }
+
+        await asetStore.tambahHistori(historiData.value.id, payload);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Histori aset berhasil diperbarui', life: 3000 });
+        historiUpdateDialog.value = false;
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memindahkan aset', life: 3000 });
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memperbarui histori', life: 3000 });
     }
 }
 
@@ -253,7 +269,7 @@ function exportPDF() {
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" v-tooltip.top="'Edit Data'" />
-                        <Button icon="pi pi-arrows-h" outlined rounded severity="secondary" class="mr-2" @click="openPindahDialog(slotProps.data)" v-tooltip.top="'Pindahkan Aset'" />
+                        <Button icon="pi pi-book" outlined rounded severity="secondary" class="mr-2" @click="openHistoriUpdateDialog(slotProps.data)" v-tooltip.top="'Update Histori'" />
                         <Button icon="pi pi-history" outlined rounded severity="info" class="mr-2" @click="openHistoriDialog(slotProps.data)" v-tooltip.top="'Lihat Histori'" />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" v-tooltip.top="'Hapus Data'" />
                     </template>
@@ -308,20 +324,26 @@ function exportPDF() {
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="pindahDialog" :style="{ width: '450px' }" :header="`Pindahkan Aset: ${asetUntukPindah.nama_aset}`" :modal="true">
+        <Dialog v-model:visible="historiUpdateDialog" :style="{ width: '450px' }" :header="`Update Histori: ${historiData.nama_aset}`" :modal="true">
             <div class="flex flex-col gap-6">
                 <div>
-                    <label for="ruangan_tujuan" class="block font-bold mb-3">Pindahkan Ke Ruangan</label>
-                    <Dropdown id="ruangan_tujuan" v-model="asetUntukPindah.ke_ruangan_id" :options="ruanganList" optionLabel="nama_ruangan" optionValue="id" placeholder="Pilih Ruangan Tujuan" fluid />
+                    <label for="status_histori" class="block font-bold mb-3">Status Baru</label>
+                    <Dropdown id="status_histori" v-model="historiData.status" :options="asetHistoriStatuses" placeholder="Pilih Status" fluid />
                 </div>
+
+                <div v-if="['Dipindahkan', 'Ditempatkan'].includes(historiData.status)">
+                    <label for="ruangan_tujuan" class="block font-bold mb-3">Pindahkan Ke Ruangan</label>
+                    <Dropdown id="ruangan_tujuan" v-model="historiData.ke_ruangan_id" :options="ruanganList" optionLabel="nama_ruangan" optionValue="id" placeholder="Pilih Ruangan Tujuan" fluid />
+                </div>
+
                 <div>
-                    <label for="catatan" class="block font-bold mb-3">Catatan</label>
-                    <Textarea id="catatan" v-model.trim="asetUntukPindah.catatan" rows="3" fluid />
+                    <label for="catatan_histori" class="block font-bold mb-3">Catatan</label>
+                    <Textarea id="catatan_histori" v-model.trim="historiData.catatan" rows="3" fluid />
                 </div>
             </div>
             <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="pindahDialog = false" />
-                <Button label="Simpan" icon="pi pi-check" @click="savePerpindahan" />
+                <Button label="Batal" icon="pi pi-times" text @click="historiUpdateDialog = false" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveHistoriUpdate" />
             </template>
         </Dialog>
 
@@ -343,6 +365,12 @@ function exportPDF() {
                                 <p>
                                     <i class="pi pi-arrow-right-arrow-left mr-2"></i>
                                     Dari <strong>{{ slotProps.item.dari_ruangan || '-' }}</strong> ke <strong>{{ slotProps.item.ke_ruangan }}</strong>
+                                </p>
+                            </div>
+                            <div v-else-if="slotProps.item.status === 'Ditempatkan'">
+                                <p>
+                                    <i class="pi pi-map-marker mr-2"></i>
+                                    Ditempatkan di <strong>{{ slotProps.item.ke_ruangan }}</strong>
                                 </p>
                             </div>
                             <p v-if="slotProps.item.catatan">

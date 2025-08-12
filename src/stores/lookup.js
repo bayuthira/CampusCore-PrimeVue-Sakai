@@ -4,7 +4,8 @@ import { defineStore } from 'pinia';
 
 export const useLookupStore = defineStore('lookup', {
     state: () => ({
-        kondisiAset: []
+        kondisiAset: [],
+        asetHistoriStatuses: []
     }),
     actions: {
         async fetchKondisiAset() {
@@ -13,6 +14,14 @@ export const useLookupStore = defineStore('lookup', {
                 this.kondisiAset = response.data;
             } catch (e) {
                 console.error('Gagal mengambil data kondisi aset:', e);
+            }
+        },
+        async fetchAsetHistoriStatuses() {
+            try {
+                const response = await apiClient.get('/lookups/aset-histori-statuses');
+                this.asetHistoriStatuses = response.data;
+            } catch (e) {
+                console.error('Gagal mengambil data status histori aset:', e);
             }
         }
     }
