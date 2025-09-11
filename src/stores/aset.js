@@ -85,6 +85,32 @@ export const useAsetStore = defineStore('aset', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async pinjamAset(asetId, data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.post(`/aset/item/${asetId}/pinjam`, data);
+                await this.fetchAset();
+            } catch (e) {
+                this.error = 'Gagal meminjamkan aset.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async kembalikanAset(peminjamanId, data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.post(`/peminjaman/${peminjamanId}/kembalikan`, data);
+                await this.fetchAset();
+            } catch (e) {
+                this.error = 'Gagal mengembalikan aset.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });

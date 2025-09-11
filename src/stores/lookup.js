@@ -23,6 +23,15 @@ export const useLookupStore = defineStore('lookup', {
             } catch (e) {
                 console.error('Gagal mengambil data status histori aset:', e);
             }
+        },
+        async searchUsers(query) {
+            try {
+                const response = await apiClient.get(`/lookups/users?q=${query}`);
+                return response.data; // Kembalikan hasil pencarian
+            } catch (e) {
+                console.error('Gagal mencari user:', e);
+                return []; // Kembalikan array kosong jika error
+            }
         }
     }
 });

@@ -21,6 +21,7 @@ const ruanganStore = useRuanganStore();
 const historiDialog = ref(false);
 const asetHistori = ref([]);
 const selectedAset = ref({});
+const filteredUsers = ref([]);
 
 const { asetList, isLoading } = storeToRefs(asetStore);
 const { jenisAsetList } = storeToRefs(jenisAsetStore);
@@ -134,41 +135,51 @@ function openHistoriUpdateDialog(data) {
         nama_aset: data.nama_aset,
         status: null,
         ke_ruangan_id: null,
-        catatan: ''
+        catatan: '',
+        peminjam: null // Kita gunakan 'peminjam' untuk menampung objek user
     };
     historiUpdateDialog.value = true;
 }
 
 async function saveHistoriUpdate() {
-    if (!historiData.value.status) {
+    const status = historiData.value.status;
+    if (!status) {
         toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Status histori harus dipilih.', life: 3000 });
-        return;
-    }
-    if (historiData.value.status === 'Dipindahkan' && !historiData.value.ke_ruangan_id) {
-        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Ruangan tujuan harus dipilih.', life: 3000 });
         return;
     }
 
     try {
-        const payload = {
-            status: historiData.value.status,
-            catatan: historiData.value.catatan
-        };
+        let promise;
+        let payload = { catatan: historiData.value.catatan };
 
-        if (['Dipindahkan', 'Ditempatkan'].includes(historiData.value.status)) {
-            // Validasi tambahan
-            if (!historiData.value.ke_ruangan_id) {
-                toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Ruangan tujuan harus dipilih.', life: 3000 });
-                return; // Hentikan proses jika ruangan belum dipilih
+        if (status === 'Dipinjam') {
+            if (!historiData.value.peminjam || !historiData.value.estimasi_tanggal_kembali) {
+                toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Peminjam dan tanggal kembali harus diisi.', life: 3000 });
+                return;
             }
-            payload.ke_ruangan_id = historiData.value.ke_ruangan_id;
+            payload.user_peminjam_id = historiData.value.peminjam.id;
+            payload.estimasi_tanggal_kembali = historiData.value.estimasi_tanggal_kembali;
+            promise = asetStore.pinjamAset(historiData.value.id, payload);
+        } else if (status === 'Dikembalikan') {
+            promise = asetStore.kembalikanAset(aset.value.peminjaman_id, payload);
+        } else {
+            payload.status = status;
+            if (['Dipindahkan', 'Ditempatkan'].includes(status)) {
+                if (!historiData.value.ke_ruangan_id) {
+                    toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Ruangan tujuan harus dipilih.', life: 3000 });
+                    return;
+                }
+                payload.ke_ruangan_id = historiData.value.ke_ruangan_id;
+            }
+            promise = asetStore.tambahHistori(historiData.value.id, payload);
         }
 
-        await asetStore.tambahHistori(historiData.value.id, payload);
+        await promise;
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Histori aset berhasil diperbarui', life: 3000 });
         historiUpdateDialog.value = false;
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memperbarui histori', life: 3000 });
+        const errorMessage = error.response?.data?.error || 'Gagal memperbarui histori';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 3000 });
     }
 }
 
@@ -218,6 +229,17 @@ function exportPDF() {
     const tableBody = asetList.value.map((item) => [item.kode_aset, item.nama_aset, item.nama_jenis, item.nama_ruangan || '-', item.kondisi, item.tanggal_pembelian]);
     autoTable(doc, { head: tableHead, body: tableBody });
     doc.save('data-aset.pdf');
+}
+
+async function searchUser(event) {
+    // Menunggu sebentar sebelum mencari untuk efisiensi
+    setTimeout(async () => {
+        if (!event.query.trim().length) {
+            filteredUsers.value = [];
+        } else {
+            filteredUsers.value = await lookupStore.searchUsers(event.query);
+        }
+    }, 250);
 }
 </script>
 
@@ -334,6 +356,21 @@ function exportPDF() {
                 <div v-if="['Dipindahkan', 'Ditempatkan'].includes(historiData.status)">
                     <label for="ruangan_tujuan" class="block font-bold mb-3">Pindahkan Ke Ruangan</label>
                     <Dropdown id="ruangan_tujuan" v-model="historiData.ke_ruangan_id" :options="ruanganList" optionLabel="nama_ruangan" optionValue="id" placeholder="Pilih Ruangan Tujuan" fluid />
+                </div>
+
+                <div v-if="historiData.status === 'Dipinjam'" class="flex flex-col gap-6">
+                    <div>
+                        <label for="user_peminjam" class="block font-bold mb-3">Peminjam</label>
+                        <AutoComplete v-model="historiData.peminjam" :suggestions="filteredUsers" @complete="searchUser" field="full_name" placeholder="Ketik untuk mencari user..." forceSelection>
+                            <template #option="slotProps">
+                                <div>({{ slotProps.option.username }}) {{ slotProps.option.full_name }}</div>
+                            </template>
+                        </AutoComplete>
+                    </div>
+                    <div>
+                        <label for="estimasi_kembali" class="block font-bold mb-3">Estimasi Tanggal Kembali</label>
+                        <Calendar id="estimasi_kembali" v-model="historiData.estimasi_tanggal_kembali" dateFormat="yy-mm-dd" showTime hourFormat="24" />
+                    </div>
                 </div>
 
                 <div>
