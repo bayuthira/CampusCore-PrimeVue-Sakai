@@ -130,13 +130,15 @@ async function deleteData() {
 }
 
 function openHistoriUpdateDialog(data) {
+    aset.value = data;
     historiData.value = {
         id: data.id,
         nama_aset: data.nama_aset,
         status: null,
         ke_ruangan_id: null,
         catatan: '',
-        peminjam: null // Kita gunakan 'peminjam' untuk menampung objek user
+        peminjam: null, // Gunakan 'peminjam' untuk menampung objek
+        estimasi_tanggal_kembali: null
     };
     historiUpdateDialog.value = true;
 }
@@ -157,6 +159,7 @@ async function saveHistoriUpdate() {
                 toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Peminjam dan tanggal kembali harus diisi.', life: 3000 });
                 return;
             }
+            // AMBIL .id DARI OBJEK 'peminjam'
             payload.user_peminjam_id = historiData.value.peminjam.id;
             payload.estimasi_tanggal_kembali = historiData.value.estimasi_tanggal_kembali;
             promise = asetStore.pinjamAset(historiData.value.id, payload);
@@ -232,14 +235,27 @@ function exportPDF() {
 }
 
 async function searchUser(event) {
-    // Menunggu sebentar sebelum mencari untuk efisiensi
     setTimeout(async () => {
         if (!event.query.trim().length) {
             filteredUsers.value = [];
         } else {
-            filteredUsers.value = await lookupStore.searchUsers(event.query);
+            const users = await lookupStore.searchUsers(event.query);
+            // Tambahkan properti baru 'display_label' ke setiap objek user
+            filteredUsers.value = users.map((user) => ({
+                ...user,
+                display_label: `(${user.username}) ${user.full_name}`
+            }));
         }
     }, 250);
+}
+
+function onUserSelect(event) {
+    console.log('EVENT @item-select:', event);
+    console.log('Nilai yang dipilih (event.value):', event.value);
+}
+
+function checkVModel() {
+    console.log('Isi v-model (historiData.peminjam):', historiData.value.peminjam);
 }
 </script>
 
@@ -258,6 +274,7 @@ async function searchUser(event) {
             <DataTable
                 ref="dt"
                 export-filename="data-aset"
+                :global-filter-fields="['kode_aset', 'nama_aset', 'nama_jenis', 'kondisi', 'info_lokasi']"
                 :value="asetList"
                 :loading="isLoading"
                 dataKey="id"
@@ -283,9 +300,18 @@ async function searchUser(event) {
                 <Column field="nama_jenis" header="Jenis Aset" sortable style="min-width: 12rem"></Column>
                 <Column field="kondisi" header="Kondisi" sortable style="min-width: 10rem"></Column>
                 <Column field="tanggal_pembelian" header="Tgl. Pembelian" sortable style="min-width: 10rem"></Column>
-                <Column field="nama_ruangan" header="Lokasi Ruangan" sortable style="min-width: 12rem">
+                <Column header="Status & Lokasi" sortable style="min-width: 16rem">
                     <template #body="slotProps">
-                        <span>{{ slotProps.data.nama_ruangan || '-' }}</span>
+                        <div v-if="slotProps.data.peminjaman_id">
+                            <i class="pi pi-user mr-2 text-orange-500"></i>
+                            <span
+                                >Dipinjam: <strong>{{ slotProps.data.nama_peminjam }}</strong></span
+                            >
+                        </div>
+                        <div v-else>
+                            <i class="pi pi-building mr-2 text-cyan-500"></i>
+                            <span>{{ slotProps.data.nama_ruangan || 'Gudang' }}</span>
+                        </div>
                     </template>
                 </Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
@@ -361,9 +387,9 @@ async function searchUser(event) {
                 <div v-if="historiData.status === 'Dipinjam'" class="flex flex-col gap-6">
                     <div>
                         <label for="user_peminjam" class="block font-bold mb-3">Peminjam</label>
-                        <AutoComplete v-model="historiData.peminjam" :suggestions="filteredUsers" @complete="searchUser" field="full_name" placeholder="Ketik untuk mencari user..." forceSelection>
+                        <AutoComplete v-model="historiData.peminjam" :suggestions="filteredUsers" @complete="searchUser" optionLabel="display_label" placeholder="Ketik untuk mencari user..." forceSelection>
                             <template #option="slotProps">
-                                <div>({{ slotProps.option.username }}) {{ slotProps.option.full_name }}</div>
+                                <div>{{ slotProps.option.display_label }}</div>
                             </template>
                         </AutoComplete>
                     </div>
@@ -408,6 +434,12 @@ async function searchUser(event) {
                                 <p>
                                     <i class="pi pi-map-marker mr-2"></i>
                                     Ditempatkan di <strong>{{ slotProps.item.ke_ruangan }}</strong>
+                                </p>
+                            </div>
+                            <div v-if="slotProps.item.status === 'Dipinjam' && slotProps.item.nama_peminjam">
+                                <p>
+                                    <i class="pi pi-user mr-2"></i>
+                                    Dipinjam oleh: <strong>{{ slotProps.item.nama_peminjam }}</strong>
                                 </p>
                             </div>
                             <p v-if="slotProps.item.catatan">

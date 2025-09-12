@@ -14,7 +14,10 @@ export const useAsetStore = defineStore('aset', {
             this.error = null;
             try {
                 const response = await apiClient.get('/aset/item');
-                this.asetList = response.data;
+                this.asetList = response.data.map((aset) => ({
+                    ...aset,
+                    info_lokasi: aset.peminjaman_id ? `Dipinjam: ${aset.nama_peminjam}` : aset.nama_ruangan || 'Gudang'
+                }));
             } catch (e) {
                 this.error = 'Gagal mengambil data Aset.';
             } finally {
