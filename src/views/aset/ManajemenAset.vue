@@ -9,7 +9,7 @@ import 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import * as XLSX from 'xlsx';
 
 // --- Setup ---
@@ -22,10 +22,18 @@ const historiDialog = ref(false);
 const asetHistori = ref([]);
 const selectedAset = ref({});
 const filteredUsers = ref([]);
+const biayaDialog = ref(false);
+const biayaData = ref({});
+const buktiFile = ref(null);
+const daftarBiayaDialog = ref(false);
+const daftarBiayaList = ref([]);
+const deleteBiayaDialog = ref(false);
+const biayaToDelete = ref({});
+const isBuktiLoading = ref(false);
 
 const { asetList, isLoading } = storeToRefs(asetStore);
 const { jenisAsetList } = storeToRefs(jenisAsetStore);
-const { kondisiAset, asetHistoriStatuses } = storeToRefs(lookupStore);
+const { kondisiAset, asetHistoriStatuses, tipeBiaya } = storeToRefs(lookupStore);
 const { ruanganList } = storeToRefs(ruanganStore);
 
 const historiUpdateDialog = ref(false);
@@ -45,6 +53,7 @@ onMounted(() => {
     lookupStore.fetchKondisiAset();
     ruanganStore.fetchRuangan();
     lookupStore.fetchAsetHistoriStatuses();
+    lookupStore.fetchTipeBiaya();
 });
 
 function formatDate(date) {
@@ -241,6 +250,145 @@ async function searchUser(event) {
         }
     }, 250);
 }
+
+function openBiayaDialog(data) {
+    // Simpan konteks aset yang dipilih
+    selectedAset.value = data;
+
+    // Siapkan 'biayaData' sebagai objek baru yang kosong
+    biayaData.value = {
+        tipe_biaya: null,
+        deskripsi: '',
+        jumlah: null,
+        tanggal_transaksi: new Date(),
+        vendor: ''
+    };
+
+    buktiFile.value = null;
+    submitted.value = false;
+    biayaDialog.value = true;
+}
+// Fungsi untuk menangani pemilihan file
+function onFileSelect(event) {
+    buktiFile.value = event.files[0];
+}
+
+// Fungsi untuk menyimpan data biaya
+
+async function saveBiaya() {
+    submitted.value = true;
+    if (!biayaData.value.tipe_biaya || !biayaData.value.jumlah || !biayaData.value.tanggal_transaksi) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Tipe Biaya, Jumlah, dan Tanggal wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+
+        // AMBIL ID ASET DARI KONTEKS YANG BENAR
+        formData.append('aset_id', selectedAset.value.id);
+
+        formData.append('tipe_biaya', biayaData.value.tipe_biaya);
+        formData.append('deskripsi', biayaData.value.deskripsi || '');
+        formData.append('jumlah', biayaData.value.jumlah);
+        formData.append('tanggal_transaksi', formatDate(biayaData.value.tanggal_transaksi));
+        formData.append('vendor', biayaData.value.vendor || '');
+
+        if (buktiFile.value) {
+            formData.append('bukti', buktiFile.value);
+        }
+
+        if (biayaData.value.id) {
+            // Mode Edit Biaya
+            await asetStore.updateBiaya(biayaData.value.id, formData);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya aset berhasil diperbarui', life: 3000 });
+        } else {
+            // Mode Tambah Biaya Baru
+            await asetStore.tambahBiaya(selectedAset.value.id, formData);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya aset berhasil ditambahkan', life: 3000 });
+        }
+
+        biayaDialog.value = false;
+        submitted.value = false;
+    } catch (error) {
+        const errorMessage = error.response?.data?.error || 'Terjadi kesalahan';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
+
+async function openDaftarBiayaDialog(data) {
+    selectedAset.value = data;
+    try {
+        daftarBiayaList.value = await asetStore.fetchBiaya(data.id);
+        daftarBiayaDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    }
+}
+
+function editBiaya(data) {
+    // Menggunakan kembali dialog dan state 'tambah biaya'
+    biayaData.value = { ...data };
+
+    // Konversi string tanggal kembali menjadi objek Date untuk komponen Calendar
+    if (data.tanggal_transaksi) {
+        biayaData.value.tanggal_transaksi = new Date(data.tanggal_transaksi);
+    }
+
+    biayaDialog.value = true;
+}
+
+function confirmDeleteBiaya(data) {
+    biayaToDelete.value = data;
+    deleteBiayaDialog.value = true;
+}
+
+async function deleteBiaya() {
+    try {
+        await asetStore.deleteBiaya(biayaToDelete.value.id);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Biaya Dihapus', life: 3000 });
+
+        // Refresh daftar biaya di dialog
+        daftarBiayaList.value = await asetStore.fetchBiaya(selectedAset.value.id);
+        deleteBiayaDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus biaya', life: 3000 });
+    }
+}
+
+async function lihatBukti(buktiUrl) {
+    if (!buktiUrl) return;
+    isBuktiLoading.value = true;
+    try {
+        // Panggil store untuk mengambil file blob
+        const blob = await asetStore.getBuktiFile(buktiUrl);
+
+        // Buat URL sementara dari blob
+        const fileURL = URL.createObjectURL(blob);
+
+        // Buka URL di tab baru
+        window.open(fileURL, '_blank');
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    } finally {
+        isBuktiLoading.value = false;
+    }
+}
+
+const totalBiaya = computed(() => {
+    if (!daftarBiayaList.value) return 'Rp 0,00';
+
+    const total = daftarBiayaList.value.reduce((sum, item) => {
+        return sum + parseFloat(item.jumlah);
+    }, 0);
+
+    // Format sebagai mata uang Rupiah
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 2
+    }).format(total);
+});
 </script>
 
 <template>
@@ -291,6 +439,8 @@ async function searchUser(event) {
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" v-tooltip.top="'Edit Data'" />
+                        <Button icon="pi pi-dollar" outlined rounded severity="success" class="mr-2" @click="openBiayaDialog(slotProps.data)" v-tooltip.top="'Tambah Biaya'" />
+                        <Button icon="pi pi-list" outlined rounded severity="contrast" class="mr-2" @click="openDaftarBiayaDialog(slotProps.data)" v-tooltip.top="'Lihat Daftar Biaya'" />
                         <Button icon="pi pi-book" outlined rounded severity="secondary" class="mr-2" @click="openHistoriUpdateDialog(slotProps.data)" v-tooltip.top="'Update Histori'" />
                         <Button icon="pi pi-history" outlined rounded severity="info" class="mr-2" @click="openHistoriDialog(slotProps.data)" v-tooltip.top="'Lihat Histori'" />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" v-tooltip.top="'Hapus Data'" />
@@ -420,6 +570,87 @@ async function searchUser(event) {
             </Timeline>
             <template #footer>
                 <Button label="Tutup" icon="pi pi-times" @click="historiDialog = false" class="p-button-text" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="biayaDialog" :style="{ width: '450px' }" :header="`Tambah Biaya untuk: ${biayaData.nama_aset}`" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="tipe_biaya" class="block font-bold mb-3">Tipe Biaya</label>
+                    <Dropdown id="tipe_biaya" v-model="biayaData.tipe_biaya" :options="tipeBiaya" required autofocus :invalid="submitted && !biayaData.tipe_biaya" placeholder="Pilih Tipe Biaya" fluid />
+                    <small v-if="submitted && !biayaData.tipe_biaya" class="text-red-500">Tipe Biaya harus diisi.</small>
+                </div>
+                <div>
+                    <label for="jumlah" class="block font-bold mb-3">Jumlah (Rp)</label>
+                    <InputNumber id="jumlah" v-model="biayaData.jumlah" required :invalid="submitted && !biayaData.jumlah" mode="currency" currency="IDR" locale="id-ID" fluid />
+                    <small v-if="submitted && !biayaData.jumlah" class="text-red-500">Jumlah harus diisi.</small>
+                </div>
+                <div>
+                    <label for="tanggal_transaksi_biaya" class="block font-bold mb-3">Tanggal Transaksi</label>
+                    <Calendar id="tanggal_transaksi_biaya" v-model="biayaData.tanggal_transaksi" required :invalid="submitted && !biayaData.tanggal_transaksi" dateFormat="yy-mm-dd" />
+                    <small v-if="submitted && !biayaData.tanggal_transaksi" class="text-red-500">Tanggal Transaksi harus diisi.</small>
+                </div>
+                <div>
+                    <label for="vendor" class="block font-bold mb-3">Vendor/Pihak Ketiga</label>
+                    <InputText id="vendor" v-model.trim="biayaData.vendor" fluid />
+                </div>
+                <div>
+                    <label for="deskripsi_biaya" class="block font-bold mb-3">Deskripsi</label>
+                    <Textarea id="deskripsi_biaya" v-model.trim="biayaData.deskripsi" rows="3" fluid />
+                </div>
+                <div v-if="!biayaData.id">
+                    <label for="bukti" class="block font-bold mb-3">Upload Bukti (Opsional)</label>
+                    <FileUpload name="bukti" @select="onFileSelect" :showUploadButton="false" :showCancelButton="false" chooseLabel="Pilih File" />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="biayaDialog = false" />
+                <Button label="Simpan Biaya" icon="pi pi-check" @click="saveBiaya" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="daftarBiayaDialog" :style="{ width: '75vw' }" maximizable :header="`Daftar Biaya untuk: ${selectedAset.nama_aset}`" :modal="true">
+            <DataTable :value="daftarBiayaList" responsiveLayout="scroll">
+                <Column field="tanggal_transaksi" header="Tanggal" sortable></Column>
+                <Column field="tipe_biaya" header="Tipe Biaya" sortable></Column>
+                <Column field="jumlah" header="Jumlah" sortable>
+                    <template #body="slotProps">
+                        {{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(slotProps.data.jumlah) }}
+                    </template>
+                </Column>
+                <Column field="vendor" header="Vendor"></Column>
+                <Column field="deskripsi" header="Deskripsi"></Column>
+                <Column field="nama_pencatat" header="Dicatat Oleh" sortable></Column>
+                <Column header="Bukti">
+                    <template #body="slotProps">
+                        <Button v-if="slotProps.data.bukti_url" icon="pi pi-eye" text rounded severity="info" @click="lihatBukti(slotProps.data.bukti_url)" :loading="isBuktiLoading" v-tooltip.top="'Lihat Bukti'" />
+                        <span v-else>-</span>
+                    </template>
+                </Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-pencil" text rounded class="mr-2" @click="editBiaya(slotProps.data)" v-tooltip.top="'Edit Biaya'" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteBiaya(slotProps.data)" v-tooltip.top="'Hapus Biaya'" />
+                    </template>
+                </Column>
+            </DataTable>
+            <template #footer>
+                <div class="flex justify-between items-center w-full">
+                    <span class="text-lg font-bold">Total Biaya: {{ totalBiaya }}</span>
+                    <Button label="Tutup" icon="pi pi-times" @click="daftarBiayaDialog = false" class="p-button-text" />
+                </div>
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="deleteBiayaDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus Biaya" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="biayaToDelete">
+                    Apakah Anda yakin ingin menghapus biaya <b>{{ biayaToDelete.tipe_biaya }}</b> sejumlah <b>{{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(biayaToDelete.jumlah) }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deleteBiayaDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteBiaya" />
             </template>
         </Dialog>
     </div>

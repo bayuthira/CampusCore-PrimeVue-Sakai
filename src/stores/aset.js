@@ -111,6 +111,71 @@ export const useAsetStore = defineStore('aset', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async tambahBiaya(asetId, formData) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                // Kirim sebagai multipart/form-data
+                await apiClient.post(`/aset/item/${asetId}/biaya`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+                // Tidak perlu fetchAset karena tidak mengubah data utama di tabel
+            } catch (e) {
+                this.error = 'Gagal menambah biaya aset.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async fetchBiaya(asetId) {
+            this.isLoading = true;
+            try {
+                const response = await apiClient.get(`/aset/item/${asetId}/biaya`);
+                return response.data;
+            } catch (e) {
+                throw new Error('Gagal mengambil daftar biaya.');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async updateBiaya(biayaId, data) {
+            this.isLoading = true;
+            try {
+                await apiClient.put(`/aset/biaya/${biayaId}`, data);
+            } catch (e) {
+                throw new Error('Gagal memperbarui biaya.');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async deleteBiaya(biayaId) {
+            this.isLoading = true;
+            try {
+                await apiClient.delete(`/aset/biaya/${biayaId}`);
+            } catch (e) {
+                throw new Error('Gagal menghapus biaya.');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async getBuktiFile(filePath) {
+            try {
+                // PERBAIKAN: Hapus 'uploads/' dari awal path
+                const correctedPath = filePath.replace('uploads/', '');
+
+                // Gunakan path yang sudah diperbaiki
+                const response = await apiClient.get(`/files/${correctedPath}`, {
+                    responseType: 'blob'
+                });
+                return response.data;
+            } catch (e) {
+                throw new Error('Gagal mengunduh file bukti.');
+            }
         }
     }
 });
