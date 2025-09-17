@@ -8,12 +8,14 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
+import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 import * as XLSX from 'xlsx';
 
 // --- Setup ---
 const toast = useToast();
+const confirm = useConfirm();
 const asetStore = useAsetStore();
 const jenisAsetStore = useJenisAsetStore();
 const lookupStore = useLookupStore();
@@ -30,6 +32,8 @@ const daftarBiayaList = ref([]);
 const deleteBiayaDialog = ref(false);
 const biayaToDelete = ref({});
 const isBuktiLoading = ref(false);
+const buktiFileInput = ref(null);
+const biayaUntukUpdateBukti = ref(null);
 
 const { asetList, isLoading } = storeToRefs(asetStore);
 const { jenisAsetList } = storeToRefs(jenisAsetStore);
@@ -396,6 +400,51 @@ const totalBiaya = computed(() => {
         minimumFractionDigits: 2
     }).format(total);
 });
+
+// Fungsi untuk memicu klik pada input file yang tersembunyi
+function triggerBuktiUpdate(biaya) {
+    biayaUntukUpdateBukti.value = biaya;
+    buktiFileInput.value.click();
+}
+
+// Fungsi untuk menangani upload file bukti baru
+async function handleBuktiUpdate(event) {
+    const file = event.target.files[0];
+    if (!file || !biayaUntukUpdateBukti.value) return;
+
+    const formData = new FormData();
+    formData.append('bukti', file);
+
+    try {
+        await asetStore.updateBuktiBiaya(biayaUntukUpdateBukti.value.id, formData);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Bukti berhasil diperbarui', life: 3000 });
+        // Refresh daftar biaya
+        daftarBiayaList.value = await asetStore.fetchBiaya(selectedAset.value.id);
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    }
+    event.target.value = ''; // Reset input file
+}
+
+// Fungsi untuk konfirmasi hapus bukti
+function confirmHapusBukti(biaya) {
+    confirm.require({
+        message: 'Apakah Anda yakin ingin menghapus file bukti untuk biaya ini?',
+        header: 'Konfirmasi Hapus Bukti',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        accept: async () => {
+            try {
+                await asetStore.hapusBuktiBiaya(biaya.id);
+                toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Bukti telah dihapus.', life: 3000 });
+                // Refresh daftar biaya
+                daftarBiayaList.value = await asetStore.fetchBiaya(selectedAset.value.id);
+            } catch (error) {
+                toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+            }
+        }
+    });
+}
 </script>
 
 <template>
@@ -647,7 +696,8 @@ const totalBiaya = computed(() => {
                 <Column header="Bukti">
                     <template #body="slotProps">
                         <Button v-if="slotProps.data.bukti_url" icon="pi pi-eye" text rounded severity="info" @click="lihatBukti(slotProps.data.bukti_url)" :loading="isBuktiLoading" v-tooltip.top="'Lihat Bukti'" />
-                        <span v-else>-</span>
+                        <Button icon="pi pi-upload" text rounded severity="secondary" @click="triggerBuktiUpdate(slotProps.data)" v-tooltip.top="'Update Bukti'" />
+                        <Button v-if="slotProps.data.bukti_url" icon="pi pi-times" text rounded severity="danger" @click="confirmHapusBukti(slotProps.data)" v-tooltip.top="'Hapus Bukti'" />
                     </template>
                 </Column>
                 <Column header="Aksi">
@@ -677,5 +727,6 @@ const totalBiaya = computed(() => {
                 <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteBiaya" />
             </template>
         </Dialog>
+        <input type="file" ref="buktiFileInput" @change="handleBuktiUpdate" style="display: none" />
     </div>
 </template>

@@ -179,6 +179,31 @@ export const useAsetStore = defineStore('aset', {
             } catch (e) {
                 throw new Error('Gagal mengunduh file bukti.');
             }
+        },
+        async updateBuktiBiaya(biayaId, formData) {
+            this.isLoading = true;
+            try {
+                await apiClient.post(`/aset/biaya/${biayaId}/update-bukti`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } catch (e) {
+                throw new Error('Gagal memperbarui bukti.');
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async hapusBuktiBiaya(biayaId) {
+            this.isLoading = true;
+            try {
+                await apiClient.delete(`/aset/biaya/${biayaId}/hapus-bukti`);
+            } catch (e) {
+                throw new Error('Gagal menghapus bukti.');
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });
