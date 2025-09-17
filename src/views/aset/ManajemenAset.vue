@@ -412,16 +412,35 @@ async function handleBuktiUpdate(event) {
     const file = event.target.files[0];
     if (!file || !biayaUntukUpdateBukti.value) return;
 
+    // --- DITAMBAHKAN: Validasi tipe file di front-end ---
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+        toast.add({
+            severity: 'error',
+            summary: 'Tipe File Salah',
+            detail: 'Hanya file JPG, PNG, atau PDF yang diizinkan.',
+            life: 4000
+        });
+        event.target.value = ''; // Reset input file
+        return; // Hentikan proses
+    }
+
     const formData = new FormData();
     formData.append('bukti', file);
 
     try {
         await asetStore.updateBuktiBiaya(biayaUntukUpdateBukti.value.id, formData);
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Bukti berhasil diperbarui', life: 3000 });
-        // Refresh daftar biaya
         daftarBiayaList.value = await asetStore.fetchBiaya(selectedAset.value.id);
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+        // --- PERBAIKAN: Tampilkan pesan error dari backend ---
+        const errorMessage = error.response?.data?.error || 'Gagal memperbarui bukti.';
+        toast.add({
+            severity: 'error',
+            summary: 'Gagal',
+            detail: errorMessage,
+            life: 5000 // Durasi lebih lama untuk error
+        });
     }
     event.target.value = ''; // Reset input file
 }
@@ -672,7 +691,7 @@ function confirmHapusBukti(biaya) {
                 </div>
                 <div v-if="!biayaData.id">
                     <label for="bukti" class="block font-bold mb-3">Upload Bukti (Opsional)</label>
-                    <FileUpload name="bukti" @select="onFileSelect" :showUploadButton="false" :showCancelButton="false" chooseLabel="Pilih File" />
+                    <FileUpload name="bukti" @select="onFileSelect" :showUploadButton="false" :showCancelButton="false" chooseLabel="Pilih File" accept=".jpeg,.jpg,.png,.pdf" />
                 </div>
             </div>
             <template #footer>
@@ -727,6 +746,6 @@ function confirmHapusBukti(biaya) {
                 <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteBiaya" />
             </template>
         </Dialog>
-        <input type="file" ref="buktiFileInput" @change="handleBuktiUpdate" style="display: none" />
+        <input type="file" ref="buktiFileInput" @change="handleBuktiUpdate" style="display: none" accept=".jpeg,.jpg,.png,.pdf" />
     </div>
 </template>
