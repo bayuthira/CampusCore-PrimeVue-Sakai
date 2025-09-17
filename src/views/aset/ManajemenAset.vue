@@ -9,7 +9,7 @@ import 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import * as XLSX from 'xlsx';
 
 // --- Setup ---
@@ -257,6 +257,145 @@ async function searchUser(event) {
         }
     }, 250);
 }
+
+function openBiayaDialog(data) {
+    // Simpan konteks aset yang dipilih
+    selectedAset.value = data;
+
+    // Siapkan 'biayaData' sebagai objek baru yang kosong
+    biayaData.value = {
+        tipe_biaya: null,
+        deskripsi: '',
+        jumlah: null,
+        tanggal_transaksi: new Date(),
+        vendor: ''
+    };
+
+    buktiFile.value = null;
+    submitted.value = false;
+    biayaDialog.value = true;
+}
+// Fungsi untuk menangani pemilihan file
+function onFileSelect(event) {
+    buktiFile.value = event.files[0];
+}
+
+// Fungsi untuk menyimpan data biaya
+async function saveBiaya() {
+    submitted.value = true;
+    if (!biayaData.value.tipe_biaya || !biayaData.value.jumlah || !biayaData.value.tanggal_transaksi) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Tipe Biaya, Jumlah, dan Tanggal wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+
+        formData.append('aset_id', biayaData.value.aset_id || selectedAset.value.id);
+        formData.append('tipe_biaya', biayaData.value.tipe_biaya);
+        formData.append('deskripsi', biayaData.value.deskripsi || '');
+        formData.append('jumlah', biayaData.value.jumlah);
+        formData.append('tanggal_transaksi', formatDate(biayaData.value.tanggal_transaksi));
+        formData.append('vendor', biayaData.value.vendor || '');
+
+        if (buktiFile.value) {
+            formData.append('bukti', buktiFile.value);
+        }
+
+        if (biayaData.value.id) {
+            // --- Mode Edit Biaya ---
+            await asetStore.updateBiaya(biayaData.value.id, formData);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya aset berhasil diperbarui', life: 3000 });
+        } else {
+            // --- Mode Tambah Biaya Baru ---
+            await asetStore.tambahBiaya(selectedAset.value.id, formData);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya aset berhasil ditambahkan', life: 3000 });
+        }
+
+        biayaDialog.value = false;
+
+        // --- KEMUNGKINAN BESAR, BARIS INI YANG HILANG ---
+        // Baris ini memaksa tabel untuk mengambil ulang data terbaru dari backend.
+        daftarBiayaList.value = await asetStore.fetchBiaya(selectedAset.value.id);
+    } catch (error) {
+        const errorMessage = error.response?.data?.error || 'Terjadi kesalahan';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
+
+async function openDaftarBiayaDialog(data) {
+    selectedAset.value = data;
+    try {
+        daftarBiayaList.value = await asetStore.fetchBiaya(data.id);
+        daftarBiayaDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    }
+}
+
+function editBiaya(data) {
+    // Menggunakan kembali dialog dan state 'tambah biaya'
+    biayaData.value = { ...data };
+
+    // Konversi string tanggal kembali menjadi objek Date untuk komponen Calendar
+    if (data.tanggal_transaksi) {
+        biayaData.value.tanggal_transaksi = new Date(data.tanggal_transaksi);
+    }
+
+    biayaDialog.value = true;
+}
+
+function confirmDeleteBiaya(data) {
+    biayaToDelete.value = data;
+    deleteBiayaDialog.value = true;
+}
+
+async function deleteBiaya() {
+    try {
+        await asetStore.deleteBiaya(biayaToDelete.value.id);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Biaya Dihapus', life: 3000 });
+
+        // Refresh daftar biaya di dialog
+        daftarBiayaList.value = await asetStore.fetchBiaya(selectedAset.value.id);
+        deleteBiayaDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus biaya', life: 3000 });
+    }
+}
+
+async function lihatBukti(buktiUrl) {
+    if (!buktiUrl) return;
+    isBuktiLoading.value = true;
+    try {
+        // Panggil store untuk mengambil file blob
+        const blob = await asetStore.getBuktiFile(buktiUrl);
+
+        // Buat URL sementara dari blob
+        const fileURL = URL.createObjectURL(blob);
+
+        // Buka URL di tab baru
+        window.open(fileURL, '_blank');
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    } finally {
+        isBuktiLoading.value = false;
+    }
+}
+
+const totalBiaya = computed(() => {
+    if (!daftarBiayaList.value) return 'Rp 0,00';
+
+    const total = daftarBiayaList.value.reduce((sum, item) => {
+        return sum + parseFloat(item.jumlah);
+    }, 0);
+
+    // Format sebagai mata uang Rupiah
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 2
+    }).format(total);
+});
 </script>
 
 <template>
@@ -456,6 +595,7 @@ async function searchUser(event) {
                 <Button label="Tutup" icon="pi pi-times" @click="historiDialog = false" class="p-button-text" />
             </template>
         </Dialog>
+
         <Dialog v-model:visible="biayaDialog" :style="{ width: '450px' }" :header="`Tambah Biaya untuk: ${biayaData.nama_aset}`" :modal="true">
             <div class="flex flex-col gap-6">
                 <div>
