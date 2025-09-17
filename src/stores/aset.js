@@ -204,6 +204,19 @@ export const useAsetStore = defineStore('aset', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async fetchAsetByRuangan(ruanganId) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await apiClient.get(`/aset/item?ruangan_id=${ruanganId}`);
+                return response.data; // Langsung kembalikan hasilnya
+            } catch (e) {
+                this.error = 'Gagal mengambil data aset per ruangan.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });

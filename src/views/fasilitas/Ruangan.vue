@@ -1,4 +1,5 @@
 <script setup>
+import { useAsetStore } from '@/stores/aset';
 import { useRuanganStore } from '@/stores/ruangan';
 import { FilterMatchMode } from '@primevue/core/api';
 import jsPDF from 'jspdf';
@@ -13,6 +14,7 @@ import * as XLSX from 'xlsx';
 const toast = useToast();
 const ruanganStore = useRuanganStore();
 const { ruanganList, isLoading } = storeToRefs(ruanganStore);
+const asetStore = useAsetStore(); //
 
 const ruanganDialog = ref(false);
 const deleteRuanganDialog = ref(false);
@@ -22,6 +24,9 @@ const dt = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
+const daftarAsetDialog = ref(false);
+const asetDiRuangan = ref([]);
+const selectedRuangan = ref({});
 
 onMounted(() => {
     ruanganStore.fetchRuangan();
@@ -120,6 +125,16 @@ async function deleteRuangan() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
     }
 }
+
+async function openDaftarAsetDialog(ruangan) {
+    selectedRuangan.value = ruangan;
+    try {
+        asetDiRuangan.value = await asetStore.fetchAsetByRuangan(ruangan.id);
+        daftarAsetDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Tidak dapat memuat daftar aset.', life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -170,6 +185,7 @@ async function deleteRuangan() {
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editRuangan(slotProps.data)" v-tooltip.top="'Edit Data'" />
+                        <Button icon="pi pi-list" outlined rounded severity="info" class="mr-2" @click="openDaftarAsetDialog(slotProps.data)" v-tooltip.top="'Lihat Aset di Ruangan Ini'" />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteRuangan(slotProps.data)" v-tooltip.top="'Hapus Data'" />
                     </template>
                 </Column>
@@ -222,6 +238,17 @@ async function deleteRuangan() {
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteRuanganDialog = false" />
                 <Button label="Ya" icon="pi pi-check" @click="deleteRuangan" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="daftarAsetDialog" :style="{ width: '75vw' }" maximizable :header="`Aset di Ruangan: ${selectedRuangan.nama_ruangan}`" :modal="true">
+            <DataTable :value="asetDiRuangan" :loading="isLoading" responsiveLayout="scroll">
+                <Column field="kode_aset" header="Kode Aset" sortable></Column>
+                <Column field="nama_aset" header="Nama Aset" sortable></Column>
+                <Column field="nama_jenis" header="Jenis Aset" sortable></Column>
+                <Column field="kondisi" header="Kondisi" sortable></Column>
+            </DataTable>
+            <template #footer>
+                <Button label="Tutup" icon="pi pi-times" @click="daftarAsetDialog = false" class="p-button-text" />
             </template>
         </Dialog>
     </div>
