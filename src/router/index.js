@@ -68,6 +68,12 @@ const router = createRouter({
                     name: 'manajemen-aset-habis-pakai',
                     component: () => import('@/views/aset/AsetHabisPakai.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'], title: 'Aset Habis Pakai' }
+                },
+                {
+                    path: '/akademik/jadwal-kuliah',
+                    name: 'jadwal-kuliah',
+                    component: () => import('@/views/akademik/JadwalKuliah.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] }
                 }
             ]
         },

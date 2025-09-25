@@ -6,7 +6,8 @@ export const useLookupStore = defineStore('lookup', {
     state: () => ({
         kondisiAset: [],
         asetHistoriStatuses: [],
-        tipeBiaya: []
+        tipeBiaya: [],
+        peranDosen: []
     }),
     actions: {
         async fetchKondisiAset() {
@@ -40,6 +41,14 @@ export const useLookupStore = defineStore('lookup', {
                 this.tipeBiaya = response.data;
             } catch (e) {
                 console.error('Gagal mengambil data tipe biaya:', e);
+            }
+        },
+        async fetchPeranDosen() {
+            try {
+                const response = await apiClient.get('/lookups/peran-dosen-pengampu');
+                this.peranDosen = response.data;
+            } catch (e) {
+                console.error('Gagal mengambil data peran dosen:', e);
             }
         }
     }
