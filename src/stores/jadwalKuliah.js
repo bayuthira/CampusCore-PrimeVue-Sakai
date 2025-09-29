@@ -21,11 +21,42 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
             }
         },
         async create(data) {
+            this.isLoading = true;
+            this.error = null;
             try {
                 await apiClient.post('/akademik/jadwal-kuliah', data);
                 await this.fetchAll();
             } catch (e) {
+                this.error = 'Gagal membuat jadwal baru.';
                 throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async update(id, data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.put(`/akademik/jadwal-kuliah/${id}`, data);
+                await this.fetchAll();
+            } catch (e) {
+                this.error = 'Gagal memperbarui jadwal.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async delete(id) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.delete(`/akademik/jadwal-kuliah/${id}`);
+                await this.fetchAll();
+            } catch (e) {
+                this.error = 'Gagal menghapus jadwal.';
+                throw e;
+            } finally {
+                this.isLoading = false;
             }
         }
     }

@@ -8,7 +8,7 @@ import { useTahunAkademikStore } from '@/stores/tahunAkademik';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 // Import untuk Export
 import jsPDF from 'jspdf';
@@ -24,6 +24,8 @@ const tahunAkademikStore = useTahunAkademikStore();
 const matakuliahStore = useMataKuliahStore();
 const dosenStore = useDosenStore();
 const lookupStore = useLookupStore();
+const deleteDialog = ref(false);
+const isNew = computed(() => !jadwal.value.id);
 
 const { list: jadwalList, isLoading } = storeToRefs(jadwalStore);
 const { prodiList } = storeToRefs(prodiStore);
@@ -97,8 +99,6 @@ function removeDosenPengampu(index) {
 
 async function saveData() {
     submitted.value = true;
-
-    // Validasi Form
     if (!jadwal.value.matakuliah_id || !jadwal.value.tahun_akademik_id || !jadwal.value.hari || !jadwal.value.jam_mulai || !jadwal.value.jam_selesai || !jadwal.value.kelas?.trim()) {
         toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Semua field wajib diisi', life: 3000 });
         return;
@@ -109,14 +109,20 @@ async function saveData() {
             ...jadwal.value,
             jam_mulai: jadwal.value.jam_mulai.toTimeString().substring(0, 5),
             jam_selesai: jadwal.value.jam_selesai.toTimeString().substring(0, 5),
-            // Pastikan dosen_id adalah string, bukan objek
             dosen_pengampu: jadwal.value.dosen_pengampu.map((d) => ({
                 dosen_id: d.dosen_id.id || d.dosen_id,
                 peran: d.peran
             }))
         };
-        await jadwalStore.create(payload);
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal kuliah berhasil dibuat', life: 3000 });
+
+        if (isNew.value) {
+            await jadwalStore.create(payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal kuliah berhasil dibuat', life: 3000 });
+        } else {
+            await jadwalStore.update(jadwal.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal kuliah berhasil diperbarui', life: 3000 });
+        }
+
         dialog.value = false;
     } catch (error) {
         const errorMessage = error.response?.data?.error || 'Gagal menyimpan jadwal';
@@ -132,6 +138,38 @@ function applyFilter() {
 }
 
 watch([filterProdi, filterTahunAkademik], applyFilter);
+function editData(data) {
+    jadwal.value = { ...data };
+
+    // Konversi string jam dari backend menjadi objek Date untuk komponen Calendar
+    if (data.jam_mulai) {
+        const [h, m] = data.jam_mulai.split(':');
+        jadwal.value.jam_mulai = new Date();
+        jadwal.value.jam_mulai.setHours(h, m, 0);
+    }
+    if (data.jam_selesai) {
+        const [h, m] = data.jam_selesai.split(':');
+        jadwal.value.jam_selesai = new Date();
+        jadwal.value.jam_selesai.setHours(h, m, 0);
+    }
+
+    dialog.value = true;
+}
+
+function confirmDelete(data) {
+    jadwal.value = data;
+    deleteDialog.value = true;
+}
+
+async function deleteData() {
+    try {
+        await jadwalStore.delete(jadwal.value.id);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal telah dihapus', life: 3000 });
+        deleteDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -184,7 +222,14 @@ watch([filterProdi, filterTahunAkademik], applyFilter);
                     </ul>
                 </template>
             </Column>
+            <Column :exportable="false" header="Aksi">
+                <template #body="slotProps">
+                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
+                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
+                </template>
+            </Column>
         </DataTable>
+        <Dialog v-model:visible="dialog" :header="isNew ? 'Tambah Jadwal Kuliah' : 'Edit Jadwal Kuliah'" :modal="true" :style="{ width: '50vw' }"></Dialog>
 
         <Dialog v-model:visible="dialog" header="Tambah Jadwal Kuliah" :modal="true" :style="{ width: '50vw' }">
             <div class="flex flex-col gap-6">
@@ -233,6 +278,19 @@ watch([filterProdi, filterTahunAkademik], applyFilter);
             <template #footer>
                 <Button label="Batal" text @click="dialog = false" />
                 <Button label="Simpan" @click="saveData" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="deleteDialog" header="Konfirmasi Hapus" :modal="true" :style="{ width: '450px' }">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span
+                    >Apakah Anda yakin ingin menghapus jadwal <b>{{ jadwal.nama_mk }}</b> kelas <b>{{ jadwal.kelas }}</b
+                    >?</span
+                >
+            </div>
+            <template #footer>
+                <Button label="Batal" text @click="deleteDialog = false" />
+                <Button label="Ya, Hapus" @click="deleteData" />
             </template>
         </Dialog>
     </div>
