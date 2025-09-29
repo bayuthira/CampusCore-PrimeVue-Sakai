@@ -211,6 +211,11 @@ async function deleteData() {
             <Column header="Jam">
                 <template #body="slotProps"> {{ slotProps.data.jam_mulai.substring(0, 5) }} - {{ slotProps.data.jam_selesai.substring(0, 5) }} </template>
             </Column>
+            <Column field="nama_ruangan" header="Ruangan" sortable>
+                <template #body="slotProps">
+                    <span>{{ slotProps.data.nama_ruangan || '-' }}</span>
+                </template>
+            </Column>
             <Column field="nama_prodi" header="Program Studi" sortable></Column>
             <Column header="Dosen Pengampu">
                 <template #body="slotProps">
