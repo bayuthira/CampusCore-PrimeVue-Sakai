@@ -1,4 +1,5 @@
 <script setup>
+import { useAuthStore } from '@/stores/auth';
 import { useDosenStore } from '@/stores/dosen';
 import { useJadwalKuliahStore } from '@/stores/jadwalKuliah';
 import { useLookupStore } from '@/stores/lookup';
@@ -17,6 +18,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 // --- Setup ---
+const authStore = useAuthStore();
 const toast = useToast();
 const jadwalStore = useJadwalKuliahStore();
 const prodiStore = useProdiStore();
@@ -33,6 +35,9 @@ const { list: tahunAkademikList } = storeToRefs(tahunAkademikStore);
 const { mataKuliahList } = storeToRefs(matakuliahStore);
 const { dosenList } = storeToRefs(dosenStore);
 const { peranDosen } = storeToRefs(lookupStore);
+const plotDialog = ref(false);
+const jadwalUntukPlot = ref({});
+const ruanganTersedia = ref([]);
 
 const dialog = ref(false);
 const jadwal = ref({});
@@ -170,6 +175,45 @@ async function deleteData() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
     }
 }
+
+async function openPlotDialog(data) {
+    jadwalUntukPlot.value = {
+        jadwal_kuliah_id: data.id,
+        nama_mk: data.nama_mk,
+        ruangan_id: null
+    };
+
+    try {
+        ruanganTersedia.value = await jadwalStore.fetchRuanganTersedia(data.id);
+        if (ruanganTersedia.value.length === 0) {
+            toast.add({ severity: 'info', summary: 'Informasi', detail: 'Tidak ada ruangan yang tersedia untuk jadwal ini.', life: 4000 });
+        } else {
+            plotDialog.value = true;
+        }
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Tidak dapat memuat daftar ruangan tersedia.', life: 3000 });
+    }
+}
+
+async function savePlot() {
+    if (!jadwalUntukPlot.value.ruangan_id) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Anda harus memilih ruangan.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = {
+            jadwal_kuliah_id: jadwalUntukPlot.value.jadwal_kuliah_id,
+            ruangan_id: jadwalUntukPlot.value.ruangan_id
+        };
+        await jadwalStore.plotRuangan(payload);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Ruangan berhasil di-plot ke jadwal.', life: 3000 });
+        plotDialog.value = false;
+    } catch (error) {
+        const errorMessage = error.response?.data?.error || 'Gagal menyimpan plot ruangan.';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
 </script>
 
 <template>
@@ -229,8 +273,10 @@ async function deleteData() {
             </Column>
             <Column :exportable="false" header="Aksi">
                 <template #body="slotProps">
-                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
-                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
+                    <Button v-if="authStore.userData?.roles.includes('STAF_BAUM')" icon="pi pi-map-marker" outlined rounded severity="secondary" class="mr-2" @click="openPlotDialog(slotProps.data)" v-tooltip.top="'Plot Ruangan'" />
+
+                    <Button v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')" icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
+                    <Button v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')" icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
                 </template>
             </Column>
         </DataTable>
@@ -296,6 +342,16 @@ async function deleteData() {
             <template #footer>
                 <Button label="Batal" text @click="deleteDialog = false" />
                 <Button label="Ya, Hapus" @click="deleteData" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="plotDialog" :style="{ width: '450px' }" :header="`Plot Ruangan untuk: ${jadwalUntukPlot.nama_mk}`" :modal="true">
+            <div class="field">
+                <label for="ruangan_plot" class="block font-bold mb-3">Ruangan Tersedia</label>
+                <Dropdown id="ruangan_plot" v-model="jadwalUntukPlot.ruangan_id" :options="ruanganTersedia" optionLabel="nama_ruangan" optionValue="id" placeholder="Pilih ruangan yang tersedia" fluid filter />
+            </div>
+            <template #footer>
+                <Button label="Batal" text @click="plotDialog.value = false" />
+                <Button label="Simpan" @click="savePlot" />
             </template>
         </Dialog>
     </div>

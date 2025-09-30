@@ -58,6 +58,30 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async fetchRuanganTersedia(jadwalId) {
+            // Fungsi ini tidak mengubah state, hanya mengambil dan mengembalikan data
+            try {
+                const response = await apiClient.get(`/lookups/ruangan-tersedia?jadwal_kuliah_id=${jadwalId}`);
+                return response.data;
+            } catch (e) {
+                console.error('Gagal mengambil data ruangan tersedia:', e);
+                throw new Error('Gagal mengambil data ruangan tersedia.');
+            }
+        },
+
+        async plotRuangan(data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.post('/akademik/plot-jadwal-ruangan', data);
+                await this.fetchAll(); // Refresh tabel jadwal
+            } catch (e) {
+                this.error = 'Gagal melakukan plot ruangan.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });
