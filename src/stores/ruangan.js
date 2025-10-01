@@ -9,21 +9,23 @@ export const useRuanganStore = defineStore('ruangan', {
         error: null
     }),
     actions: {
-        async fetchRuangan() {
+        async fetchRuangan(query = '') {
+            // Terima parameter query
             this.isLoading = true;
             this.error = null;
             try {
-                const response = await apiClient.get('/aset/ruangan'); // Endpoint diperbarui
-                this.ruanganList = response.data.map((ruangan) => ({
-                    ...ruangan,
-                    luas: ruangan.panjang && ruangan.lebar ? ruangan.panjang * ruangan.lebar : 0
-                }));
+                // Tambahkan query 'q' jika ada isinya
+                const response = await apiClient.get('/aset/ruangan', {
+                    params: { q: query }
+                });
+                this.ruanganList = response.data;
             } catch (e) {
                 this.error = 'Gagal mengambil data ruangan.';
             } finally {
                 this.isLoading = false;
             }
         },
+
         async createRuangan(data) {
             this.isLoading = true;
             this.error = null;

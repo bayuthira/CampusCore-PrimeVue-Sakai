@@ -80,6 +80,12 @@ const router = createRouter({
                     name: 'tahun-akademik',
                     component: () => import('@/views/akademik/TahunAkademik.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
+                },
+                {
+                    path: '/fasilitas/jadwal-ruangan',
+                    name: 'jadwal-ruangan',
+                    component: () => import('@/views/fasilitas/JadwalRuangan.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
                 }
             ]
         },
