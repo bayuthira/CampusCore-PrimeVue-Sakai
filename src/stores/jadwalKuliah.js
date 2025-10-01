@@ -10,12 +10,19 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
     actions: {
         async fetchAll(filters = {}) {
             this.isLoading = true;
+            this.error = null;
             try {
-                // Mengirim filter sebagai query params
                 const response = await apiClient.get('/akademik/jadwal-kuliah', { params: filters });
-                this.list = response.data;
+
+                // Tambahkan field baru 'dosen_pengampu_searchable'
+                this.list = response.data.map((jadwal) => ({
+                    ...jadwal,
+                    // Buat satu string berisi semua nama dosen, dipisahkan koma
+                    dosen_pengampu_searchable: jadwal.dosen_pengampu.map((d) => d.nama_dosen).join(', ')
+                }));
             } catch (e) {
-                console.error('Gagal fetch jadwal kuliah:', e);
+                this.error = 'Gagal mengambil jadwal kuliah.';
+                console.error(e);
             } finally {
                 this.isLoading = false;
             }
@@ -78,6 +85,19 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
                 await this.fetchAll(); // Refresh tabel jadwal
             } catch (e) {
                 this.error = 'Gagal melakukan plot ruangan.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async unplotRuangan(jadwalId) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.delete(`/akademik/plot-jadwal-ruangan/${jadwalId}`);
+                await this.fetchAll(); // Refresh tabel jadwal
+            } catch (e) {
+                this.error = 'Gagal melakukan unplot ruangan.';
                 throw e;
             } finally {
                 this.isLoading = false;

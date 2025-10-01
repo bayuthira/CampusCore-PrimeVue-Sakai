@@ -8,6 +8,7 @@ import { useProdiStore } from '@/stores/prodi';
 import { useTahunAkademikStore } from '@/stores/tahunAkademik';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
+import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref, watch } from 'vue';
 
@@ -28,6 +29,7 @@ const dosenStore = useDosenStore();
 const lookupStore = useLookupStore();
 const deleteDialog = ref(false);
 const isNew = computed(() => !jadwal.value.id);
+const confirm = useConfirm();
 
 const { list: jadwalList, isLoading } = storeToRefs(jadwalStore);
 const { prodiList } = storeToRefs(prodiStore);
@@ -214,13 +216,30 @@ async function savePlot() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
     }
 }
+
+function confirmUnplot(data) {
+    confirm.require({
+        message: `Apakah Anda yakin ingin menghapus plot ruangan dari jadwal ${data.nama_mk} kelas ${data.kelas}?`,
+        header: 'Konfirmasi Unplot Ruangan',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        accept: async () => {
+            try {
+                await jadwalStore.unplotRuangan(data.id);
+                toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Plot ruangan telah dihapus.', life: 3000 });
+            } catch (error) {
+                toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus plot ruangan.', life: 3000 });
+            }
+        }
+    });
+}
 </script>
 
 <template>
     <div class="card">
         <Toolbar class="mb-4">
             <template #start>
-                <Button label="Tambah Jadwal" icon="pi pi-plus" severity="secondary" @click="openNew" />
+                <Button label="Tambah Jadwal" icon="pi pi-plus" severity="secondary" @click="openNew" v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')" />
             </template>
             <template #end>
                 <SplitButton label="Export" icon="pi pi-upload" :model="exportItems" severity="secondary"></SplitButton>
@@ -238,7 +257,15 @@ async function savePlot() {
             </div>
         </div>
 
-        <DataTable ref="dt" :value="jadwalList" :loading="isLoading" :filters="filters" export-filename="jadwal-kuliah" responsiveLayout="scroll">
+        <DataTable
+            ref="dt"
+            :value="jadwalList"
+            :loading="isLoading"
+            :filters="filters"
+            :global-filter-fields="['nama_mk', 'kode_mk', 'kelas', 'hari', 'nama_prodi', 'nama_ruangan', 'dosen_pengampu_searchable']"
+            export-filename="jadwal-kuliah"
+            responsiveLayout="scroll"
+        >
             <template #header>
                 <div class="flex flex-wrap gap-2 items-center justify-between">
                     <h4 class="m-0">Daftar Jadwal Kuliah</h4>
@@ -274,9 +301,34 @@ async function savePlot() {
             <Column :exportable="false" header="Aksi">
                 <template #body="slotProps">
                     <Button v-if="authStore.userData?.roles.includes('STAF_BAUM')" icon="pi pi-map-marker" outlined rounded severity="secondary" class="mr-2" @click="openPlotDialog(slotProps.data)" v-tooltip.top="'Plot Ruangan'" />
-
-                    <Button v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')" icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
-                    <Button v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')" icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
+                    <Button
+                        v-if="slotProps.data.ruangan_id && authStore.userData?.roles.includes('STAF_BAUM')"
+                        icon="pi pi-times-circle"
+                        outlined
+                        rounded
+                        severity="danger"
+                        class="mr-2"
+                        @click="confirmUnplot(slotProps.data)"
+                        v-tooltip.top="'Unplot Ruangan'"
+                    />
+                    <Button
+                        v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')"
+                        icon="pi pi-pencil"
+                        outlined
+                        rounded
+                        class="mr-2"
+                        @click="editData(slotProps.data)"
+                        v-tooltip.top="'Edit Jadwal'"
+                    />
+                    <Button
+                        v-if="authStore.userData?.roles.includes('SUPER_ADMIN') || authStore.userData?.roles.includes('STAF_AKADEMIK')"
+                        icon="pi pi-trash"
+                        outlined
+                        rounded
+                        severity="danger"
+                        @click="confirmDelete(slotProps.data)"
+                        v-tooltip.top="'Hapus Jadwal'"
+                    />
                 </template>
             </Column>
         </DataTable>
