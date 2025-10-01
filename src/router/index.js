@@ -74,6 +74,12 @@ const router = createRouter({
                     name: 'jadwal-kuliah',
                     component: () => import('@/views/akademik/JadwalKuliah.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'], title: 'Jadwal Kuliah' }
+                },
+                {
+                    path: '/akademik/tahun-akademik',
+                    name: 'tahun-akademik',
+                    component: () => import('@/views/akademik/TahunAkademik.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
                 }
             ]
         },

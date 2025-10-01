@@ -48,7 +48,10 @@ const fullMenu = [
     {
         label: 'Perkuliahan',
         roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'],
-        items: [{ label: 'Jadwal Kuliah', icon: 'pi pi-fw pi-calendar', to: '/akademik/jadwal-kuliah' }]
+        items: [
+            { label: 'Jadwal Kuliah', icon: 'pi pi-fw pi-calendar', to: '/akademik/jadwal-kuliah', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'] },
+            { label: 'Tahun Akademik', icon: 'pi pi-fw pi-sitemap', to: '/akademik/tahun-akademik', roles: ['SUPER_ADMIN'] }
+        ]
     }
 ];
 
