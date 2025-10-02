@@ -24,7 +24,6 @@ const calendarRef = ref(null);
 
 const tipePerulanganOptions = ref(['Mingguan', 'Harian']);
 const calendarOptions = ref({
-    // Dibuat menjadi ref agar bisa diupdate
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     initialView: 'dayGridMonth',
     headerToolbar: {
@@ -39,18 +38,47 @@ const calendarOptions = ref({
     weekends: true,
     select: handleDateSelect,
     eventClick: handleEventClick,
-    events: [], // Awalnya kosong, akan diisi oleh store
-    datesSet: handleDatesSet
+    events: [],
+    datesSet: handleDatesSet,
+    eventContent: handleEventContent
 });
 
 // --- Functions ---
+
+// FUNGSI HELPER UNTUK FORMAT DATETIME DENGAN TIMEZONE
+function formatDateTimeWithTimezone(date) {
+    const offset = -date.getTimezoneOffset();
+    const offsetHours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+    const offsetMinutes = String(Math.abs(offset) % 60).padStart(2, '0');
+    const offsetSign = offset >= 0 ? '+' : '-';
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
+}
+
 onMounted(() => {
     ruanganStore.fetchRuangan();
 });
 
 function handleDatesSet(dateInfo) {
     if (selectedRuangan.value) {
-        jadwalRuanganStore.fetchEvents(selectedRuangan.value, dateInfo.startStr, dateInfo.endStr);
+        // Format dengan timezone lokal (WIB = +07:00)
+        const start = formatDateTimeWithTimezone(dateInfo.start);
+        const end = formatDateTimeWithTimezone(dateInfo.end);
+
+        console.log('=== handleDatesSet Debug ===');
+        console.log('View Type:', dateInfo.view.type);
+        console.log('Start:', start);
+        console.log('End:', end);
+        console.log('Ruangan ID:', selectedRuangan.value);
+
+        jadwalRuanganStore.fetchEvents(selectedRuangan.value, start, end);
     }
 }
 
@@ -77,6 +105,7 @@ function handleEventClick(clickInfo) {
     }
 }
 
+// FUNGSI SAVE DATA (SUDAH DIPERBAIKI)
 async function saveData() {
     try {
         const payload = { ...eventData.value };
@@ -88,7 +117,9 @@ async function saveData() {
         if (selectedRuangan.value && calendarRef.value) {
             const calendarApi = calendarRef.value.getApi();
             const view = calendarApi.view;
-            await jadwalRuanganStore.fetchEvents(selectedRuangan.value, view.activeStart.toISOString(), view.activeEnd.toISOString());
+            const start = formatDateTimeWithTimezone(view.activeStart);
+            const end = formatDateTimeWithTimezone(view.activeEnd);
+            await jadwalRuanganStore.fetchEvents(selectedRuangan.value, start, end);
         }
 
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal berhasil dibuat', life: 3000 });
@@ -98,13 +129,14 @@ async function saveData() {
     }
 }
 
-// PERBAIKAN UTAMA ADA DI SINI
+// WATCH SELECTED RUANGAN (SUDAH DIPERBAIKI)
 watch(selectedRuangan, (newRuanganId) => {
     if (newRuanganId && calendarRef.value) {
-        // Jangan panggil refetchEvents(), panggil fetchEvents dari store secara manual
         const calendarApi = calendarRef.value.getApi();
         const view = calendarApi.view;
-        jadwalRuanganStore.fetchEvents(newRuanganId, view.activeStart.toISOString(), view.activeEnd.toISOString());
+        const start = formatDateTimeWithTimezone(view.activeStart);
+        const end = formatDateTimeWithTimezone(view.activeEnd);
+        jadwalRuanganStore.fetchEvents(newRuanganId, start, end);
     } else {
         // Jika tidak ada ruangan dipilih, kosongkan events di store
         jadwalRuanganStore.events = [];
@@ -124,7 +156,21 @@ function onRuanganFilter(event) {
         ruanganStore.fetchRuangan(event.value);
     }, 500);
 }
+
+function handleEventContent(arg) {
+    // Kita buat HTML kustom untuk ditampilkan di dalam event
+    let html = `
+        <div class="fc-event-main-frame">
+            <div class="fc-event-time">${arg.timeText}</div>
+            <div class="fc-event-title-container">
+                <div class="fc-event-title fc-sticky">${arg.event.title}</div>
+            </div>
+        </div>
+    `;
+    return { html: html };
+}
 </script>
+
 <template>
     <div class="card">
         <h5>Jadwal Penggunaan Ruangan</h5>

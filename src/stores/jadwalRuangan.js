@@ -11,9 +11,17 @@ export const useJadwalRuanganStore = defineStore('jadwalRuangan', {
         async fetchEvents(ruanganId, start, end) {
             this.isLoading = true;
             try {
+                console.log('=== Store fetchEvents ===');
+                console.log('URL:', `/aset/ruangan/${ruanganId}/jadwal`);
+                console.log('Params:', { start, end });
+
                 const response = await apiClient.get(`/aset/ruangan/${ruanganId}/jadwal`, {
                     params: { start, end }
                 });
+
+                console.log('Response data:', response.data);
+                console.log('Jumlah events:', response.data.length);
+
                 this.events = response.data.map((event) => ({
                     id: event.id,
                     title: event.judul_kegiatan,
@@ -21,8 +29,11 @@ export const useJadwalRuanganStore = defineStore('jadwalRuangan', {
                     end: event.waktu_selesai,
                     extendedProps: event // Simpan semua data asli di sini
                 }));
+
+                console.log('Events setelah mapping:', this.events);
             } catch (e) {
                 console.error('Gagal mengambil jadwal ruangan:', e);
+                console.error('Error response:', e.response?.data);
             } finally {
                 this.isLoading = false;
             }

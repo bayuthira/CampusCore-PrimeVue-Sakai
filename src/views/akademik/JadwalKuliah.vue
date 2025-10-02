@@ -114,8 +114,11 @@ async function saveData() {
     try {
         const payload = {
             ...jadwal.value,
-            jam_mulai: jadwal.value.jam_mulai.toTimeString().substring(0, 5),
-            jam_selesai: jadwal.value.jam_selesai.toTimeString().substring(0, 5),
+            // Konversi ke UTC sebelum dikirim
+            jam_mulai: jadwal.value.jam_mulai.toISOString(),
+            jam_selesai: jadwal.value.jam_selesai.toISOString(),
+            // Format tanggal perulangan jika ada
+            tanggal_akhir_perulangan: jadwal.value.tanggal_akhir_perulangan ? formatDate(jadwal.value.tanggal_akhir_perulangan) : undefined,
             dosen_pengampu: jadwal.value.dosen_pengampu.map((d) => ({
                 dosen_id: d.dosen_id.id || d.dosen_id,
                 peran: d.peran
@@ -145,19 +148,27 @@ function applyFilter() {
 }
 
 watch([filterProdi, filterTahunAkademik], applyFilter);
+
 function editData(data) {
     jadwal.value = { ...data };
 
-    // Konversi string jam dari backend menjadi objek Date untuk komponen Calendar
+    // Konversi string "HH:MM:SS" dari backend menjadi objek Date untuk komponen Calendar
     if (data.jam_mulai) {
         const [h, m] = data.jam_mulai.split(':');
-        jadwal.value.jam_mulai = new Date();
-        jadwal.value.jam_mulai.setHours(h, m, 0);
+        const dateObj = new Date();
+        dateObj.setHours(h, m, 0, 0);
+        jadwal.value.jam_mulai = dateObj;
     }
     if (data.jam_selesai) {
         const [h, m] = data.jam_selesai.split(':');
-        jadwal.value.jam_selesai = new Date();
-        jadwal.value.jam_selesai.setHours(h, m, 0);
+        const dateObj = new Date();
+        dateObj.setHours(h, m, 0, 0);
+        jadwal.value.jam_selesai = dateObj;
+    }
+
+    // Konversi tanggal lain jika ada
+    if (data.tanggal_akhir_perulangan) {
+        jadwal.value.tanggal_akhir_perulangan = new Date(data.tanggal_akhir_perulangan);
     }
 
     dialog.value = true;
@@ -233,6 +244,28 @@ function confirmUnplot(data) {
         }
     });
 }
+
+// Fungsi untuk format tanggal YYYY-MM-DD
+function formatDate(date) {
+    if (!date) return null;
+    const d = new Date(date);
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+    return [year, month, day].join('-');
+}
+
+// Fungsi untuk menampilkan waktu lokal HH:mm dari string UTC
+function formatTime(isoString) {
+    if (!isoString) return '';
+    // new Date() akan otomatis mengonversi string UTC ke zona waktu lokal browser
+    const date = new Date(isoString);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
 </script>
 
 <template>
@@ -280,7 +313,7 @@ function confirmUnplot(data) {
             <Column field="kelas" header="Kelas" sortable></Column>
             <Column field="hari" header="Hari" sortable></Column>
             <Column header="Jam">
-                <template #body="slotProps"> {{ slotProps.data.jam_mulai.substring(0, 5) }} - {{ slotProps.data.jam_selesai.substring(0, 5) }} </template>
+                <template #body="slotProps"> {{ formatTime(slotProps.data.jam_mulai) }} - {{ formatTime(slotProps.data.jam_selesai) }} </template>
             </Column>
             <Column field="nama_ruangan" header="Ruangan" sortable>
                 <template #body="slotProps">
