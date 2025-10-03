@@ -48,7 +48,7 @@ export const useJadwalRuanganStore = defineStore('jadwalRuangan', {
         },
         async deleteEvent(id) {
             try {
-                await apiClient.delete(`/aset/jadwal-ruangan/${id}`);
+                await apiClient.delete(`/aset/ruangan/jadwal/${id}`);
             } catch (e) {
                 this.error = 'Gagal menghapus jadwal.';
                 throw e;

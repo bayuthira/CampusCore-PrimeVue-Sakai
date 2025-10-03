@@ -18,18 +18,28 @@ const { events } = storeToRefs(jadwalRuanganStore);
 const { ruanganList } = storeToRefs(ruanganStore);
 
 const dialog = ref(false);
+const deleteDialog = ref(false);
 const eventData = ref({});
+const selectedEvent = ref(null);
 const selectedRuangan = ref(null);
 const calendarRef = ref(null);
+const submitted = ref(false);
 
 const tipePerulanganOptions = ref(['Mingguan', 'Harian']);
 const calendarOptions = ref({
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
     initialView: 'dayGridMonth',
+    locale: 'id',
     headerToolbar: {
         left: 'prev,next today',
         center: 'title',
         right: 'dayGridMonth,timeGridWeek,timeGridDay'
+    },
+    buttonText: {
+        today: 'Hari Ini',
+        month: 'Bulan',
+        week: 'Minggu',
+        day: 'Hari'
     },
     editable: false,
     selectable: true,
@@ -40,7 +50,19 @@ const calendarOptions = ref({
     eventClick: handleEventClick,
     events: [],
     datesSet: handleDatesSet,
-    eventContent: handleEventContent
+    eventContent: handleEventContent,
+    eventTimeFormat: {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    },
+    slotLabelFormat: {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    },
+    displayEventTime: true,
+    displayEventEnd: true
 });
 
 // --- Functions ---
@@ -71,13 +93,6 @@ function handleDatesSet(dateInfo) {
         // Format dengan timezone lokal (WIB = +07:00)
         const start = formatDateTimeWithTimezone(dateInfo.start);
         const end = formatDateTimeWithTimezone(dateInfo.end);
-
-        console.log('=== handleDatesSet Debug ===');
-        console.log('View Type:', dateInfo.view.type);
-        console.log('Start:', start);
-        console.log('End:', end);
-        console.log('Ruangan ID:', selectedRuangan.value);
-
         jadwalRuanganStore.fetchEvents(selectedRuangan.value, start, end);
     }
 }
@@ -88,25 +103,41 @@ function handleDateSelect(selectInfo) {
         waktu_selesai: selectInfo.end,
         ruangan_id: selectedRuangan.value
     };
+    submitted.value = false;
     dialog.value = true;
 }
 
 function handleEventClick(clickInfo) {
-    if (confirm(`Apakah Anda yakin ingin menghapus kegiatan "${clickInfo.event.title}"?`)) {
-        jadwalRuanganStore
-            .deleteEvent(clickInfo.event.id)
-            .then(() => {
-                clickInfo.event.remove();
-                toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal dihapus', life: 3000 });
-            })
-            .catch((err) => {
-                toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
-            });
+    selectedEvent.value = clickInfo.event;
+    deleteDialog.value = true;
+}
+
+async function deleteData() {
+    try {
+        await jadwalRuanganStore.deleteEvent(selectedEvent.value.id);
+        selectedEvent.value.remove();
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal berhasil dihapus', life: 3000 });
+        deleteDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
     }
 }
 
 // FUNGSI SAVE DATA (SUDAH DIPERBAIKI)
 async function saveData() {
+    submitted.value = true;
+
+    // Validasi judul kegiatan wajib diisi
+    if (!eventData.value.judul_kegiatan || eventData.value.judul_kegiatan.trim() === '') {
+        toast.add({
+            severity: 'warn',
+            summary: 'Peringatan',
+            detail: 'Judul kegiatan wajib diisi',
+            life: 3000
+        });
+        return;
+    }
+
     try {
         const payload = { ...eventData.value };
         payload.jam_mulai = payload.waktu_mulai.toTimeString().substring(0, 5);
@@ -124,6 +155,7 @@ async function saveData() {
 
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal berhasil dibuat', life: 3000 });
         dialog.value = false;
+        submitted.value = false;
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan jadwal', life: 4000 });
     }
@@ -158,16 +190,33 @@ function onRuanganFilter(event) {
 }
 
 function handleEventContent(arg) {
-    // Kita buat HTML kustom untuk ditampilkan di dalam event
-    let html = `
-        <div class="fc-event-main-frame">
-            <div class="fc-event-time">${arg.timeText}</div>
-            <div class="fc-event-title-container">
-                <div class="fc-event-title fc-sticky">${arg.event.title}</div>
+    // Format waktu ke 24 jam (HH:mm)
+    const formatTime = (date) => {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
+
+    let timeText = '';
+    if (arg.event.start && arg.event.end) {
+        const startTime = formatTime(arg.event.start);
+        const endTime = formatTime(arg.event.end);
+        timeText = `${startTime} - ${endTime}`;
+    } else if (arg.event.start) {
+        timeText = formatTime(arg.event.start);
+    }
+
+    // Gunakan timeText manual untuk semua view
+    return {
+        html: `
+            <div class="fc-event-main-frame">
+                <div class="fc-event-time">${timeText}</div>
+                <div class="fc-event-title-container">
+                    <div class="fc-event-title fc-sticky">${arg.event.title}</div>
+                </div>
             </div>
-        </div>
-    `;
-    return { html: html };
+        `
+    };
 }
 </script>
 
@@ -195,8 +244,9 @@ function handleEventContent(arg) {
                 <Dropdown v-model="eventData.ruangan_id" :options="ruanganList" optionLabel="nama_ruangan" optionValue="id" fluid disabled :placeholder="ruanganList.find((r) => r.id === selectedRuangan)?.nama_ruangan" />
             </div>
             <div>
-                <label class="block font-bold mb-3">Judul Kegiatan</label>
-                <InputText v-model="eventData.judul_kegiatan" fluid />
+                <label class="block font-bold mb-3">Judul Kegiatan <span class="text-red-500">*</span></label>
+                <InputText v-model="eventData.judul_kegiatan" fluid :class="{ 'p-invalid': submitted && !eventData.judul_kegiatan }" placeholder="Masukkan judul kegiatan" />
+                <small v-if="submitted && !eventData.judul_kegiatan" class="text-red-500"> Judul kegiatan wajib diisi. </small>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -224,6 +274,20 @@ function handleEventContent(arg) {
         <template #footer>
             <Button label="Batal" text @click="dialog = false" />
             <Button label="Simpan" @click="saveData" />
+        </template>
+    </Dialog>
+
+    <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
+        <div class="flex items-center gap-4">
+            <i class="pi pi-exclamation-triangle !text-3xl" />
+            <span v-if="selectedEvent">
+                Apakah Anda yakin ingin menghapus jadwal <b>{{ selectedEvent.title }}</b
+                >?
+            </span>
+        </div>
+        <template #footer>
+            <Button label="Tidak" icon="pi pi-times" text @click="deleteDialog = false" />
+            <Button label="Ya" icon="pi pi-check" @click="deleteData" />
         </template>
     </Dialog>
 </template>
