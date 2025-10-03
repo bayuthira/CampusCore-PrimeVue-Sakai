@@ -113,12 +113,14 @@ async function saveData() {
 
     try {
         const payload = {
-            ...jadwal.value,
-            // Konversi ke UTC sebelum dikirim
-            jam_mulai: jadwal.value.jam_mulai.toISOString(),
-            jam_selesai: jadwal.value.jam_selesai.toISOString(),
-            // Format tanggal perulangan jika ada
-            tanggal_akhir_perulangan: jadwal.value.tanggal_akhir_perulangan ? formatDate(jadwal.value.tanggal_akhir_perulangan) : undefined,
+            matakuliah_id: jadwal.value.matakuliah_id,
+            tahun_akademik_id: jadwal.value.tahun_akademik_id,
+            hari: jadwal.value.hari,
+            kelas: jadwal.value.kelas,
+            // --- PERBAIKAN DI SINI ---
+            jam_mulai: formatTimeToOffset(jadwal.value.jam_mulai),
+            jam_selesai: formatTimeToOffset(jadwal.value.jam_selesai),
+            // ... sisa payload
             dosen_pengampu: jadwal.value.dosen_pengampu.map((d) => ({
                 dosen_id: d.dosen_id.id || d.dosen_id,
                 peran: d.peran
@@ -152,23 +154,18 @@ watch([filterProdi, filterTahunAkademik], applyFilter);
 function editData(data) {
     jadwal.value = { ...data };
 
-    // Konversi string "HH:MM:SS" dari backend menjadi objek Date untuk komponen Calendar
+    // Konversi string "HH:mm+ZZ:ZZ" menjadi objek Date
     if (data.jam_mulai) {
-        const [h, m] = data.jam_mulai.split(':');
-        const dateObj = new Date();
-        dateObj.setHours(h, m, 0, 0);
-        jadwal.value.jam_mulai = dateObj;
+        const timeOnly = data.jam_mulai.substring(0, 5); // Ambil "HH:mm"
+        const [h, m] = timeOnly.split(':');
+        jadwal.value.jam_mulai = new Date();
+        jadwal.value.jam_mulai.setHours(h, m, 0);
     }
     if (data.jam_selesai) {
-        const [h, m] = data.jam_selesai.split(':');
-        const dateObj = new Date();
-        dateObj.setHours(h, m, 0, 0);
-        jadwal.value.jam_selesai = dateObj;
-    }
-
-    // Konversi tanggal lain jika ada
-    if (data.tanggal_akhir_perulangan) {
-        jadwal.value.tanggal_akhir_perulangan = new Date(data.tanggal_akhir_perulangan);
+        const timeOnly = data.jam_selesai.substring(0, 5); // Ambil "HH:mm"
+        const [h, m] = timeOnly.split(':');
+        jadwal.value.jam_selesai = new Date();
+        jadwal.value.jam_selesai.setHours(h, m, 0);
     }
 
     dialog.value = true;
@@ -245,26 +242,19 @@ function confirmUnplot(data) {
     });
 }
 
-// Fungsi untuk format tanggal YYYY-MM-DD
-function formatDate(date) {
+function formatTimeToOffset(date) {
     if (!date) return null;
     const d = new Date(date);
-    let month = '' + (d.getMonth() + 1);
-    let day = '' + d.getDate();
-    const year = d.getFullYear();
-    if (month.length < 2) month = '0' + month;
-    if (day.length < 2) day = '0' + day;
-    return [year, month, day].join('-');
-}
 
-// Fungsi untuk menampilkan waktu lokal HH:mm dari string UTC
-function formatTime(isoString) {
-    if (!isoString) return '';
-    // new Date() akan otomatis mengonversi string UTC ke zona waktu lokal browser
-    const date = new Date(isoString);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+
+    const timezoneOffset = -d.getTimezoneOffset();
+    const sign = timezoneOffset >= 0 ? '+' : '-';
+    const offsetHours = String(Math.floor(Math.abs(timezoneOffset) / 60)).padStart(2, '0');
+    const offsetMinutes = String(Math.abs(timezoneOffset) % 60).padStart(2, '0');
+
+    return `${hours}:${minutes}${sign}${offsetHours}:${offsetMinutes}`;
 }
 </script>
 
@@ -313,7 +303,7 @@ function formatTime(isoString) {
             <Column field="kelas" header="Kelas" sortable></Column>
             <Column field="hari" header="Hari" sortable></Column>
             <Column header="Jam">
-                <template #body="slotProps"> {{ formatTime(slotProps.data.jam_mulai) }} - {{ formatTime(slotProps.data.jam_selesai) }} </template>
+                <template #body="slotProps"> {{ slotProps.data.jam_mulai.substring(0, 5) }} - {{ slotProps.data.jam_selesai.substring(0, 5) }} </template>
             </Column>
             <Column field="nama_ruangan" header="Ruangan" sortable>
                 <template #body="slotProps">
@@ -335,7 +325,7 @@ function formatTime(isoString) {
                 <template #body="slotProps">
                     <Button v-if="authStore.userData?.roles.includes('STAF_BAUM')" icon="pi pi-map-marker" outlined rounded severity="secondary" class="mr-2" @click="openPlotDialog(slotProps.data)" v-tooltip.top="'Plot Ruangan'" />
                     <Button
-                        v-if="slotProps.data.ruangan_id && authStore.userData?.roles.includes('STAF_BAUM')"
+                        v-if="slotProps.data.ruangan_id && (authStore.userData?.roles.includes('STAF_BAUM') || authStore.userData?.roles.includes('SUPER_ADMIN'))"
                         icon="pi pi-times-circle"
                         outlined
                         rounded
