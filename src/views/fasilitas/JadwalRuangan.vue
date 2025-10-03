@@ -127,23 +127,39 @@ async function deleteData() {
 async function saveData() {
     submitted.value = true;
 
-    // Validasi judul kegiatan wajib diisi
-    if (!eventData.value.judul_kegiatan || eventData.value.judul_kegiatan.trim() === '') {
-        toast.add({
-            severity: 'warn',
-            summary: 'Peringatan',
-            detail: 'Judul kegiatan wajib diisi',
-            life: 3000
-        });
+    if (!eventData.value.judul_kegiatan?.trim() || !eventData.value.waktu_mulai || !eventData.value.waktu_selesai) {
+        toast.add({ severity: 'warn', summary: 'Peringatan', detail: 'Judul, Waktu Mulai, dan Waktu Selesai wajib diisi', life: 3000 });
         return;
     }
 
     try {
-        const payload = { ...eventData.value };
-        payload.jam_mulai = payload.waktu_mulai.toTimeString().substring(0, 5);
-        payload.jam_selesai = payload.waktu_selesai.toTimeString().substring(0, 5);
+        // Buat payload awal
+        const payload = {
+            ruangan_id: selectedRuangan.value,
+            judul_kegiatan: eventData.value.judul_kegiatan,
+            deskripsi: eventData.value.deskripsi,
+            waktu_mulai: formatDateTimeWithTimezone(eventData.value.waktu_mulai),
+            waktu_selesai: formatDateTimeWithTimezone(eventData.value.waktu_selesai)
+        };
+
+        // Logika khusus untuk perulangan
+        if (eventData.value.tipe_perulangan) {
+            payload.tipe_perulangan = eventData.value.tipe_perulangan;
+
+            // --- PERBAIKAN UTAMA DI SINI ---
+            // Cek jika tanggal akhir perulangan ada, lalu format ke YYYY-MM-DD
+            if (eventData.value.tanggal_akhir_perulangan) {
+                const date = new Date(eventData.value.tanggal_akhir_perulangan);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                payload.tanggal_akhir_perulangan = `${year}-${month}-${day}`;
+            }
+        }
+
         await jadwalRuanganStore.createEvent(payload);
 
+        // Refresh kalender
         // Langsung panggil fetchEvents setelah berhasil menyimpan
         if (selectedRuangan.value && calendarRef.value) {
             const calendarApi = calendarRef.value.getApi();
@@ -155,12 +171,11 @@ async function saveData() {
 
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal berhasil dibuat', life: 3000 });
         dialog.value = false;
-        submitted.value = false;
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan jadwal', life: 4000 });
+        const errorMessage = error.response?.data?.error || 'Gagal menyimpan jadwal';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
     }
 }
-
 // WATCH SELECTED RUANGAN (SUDAH DIPERBAIKI)
 watch(selectedRuangan, (newRuanganId) => {
     if (newRuanganId && calendarRef.value) {
