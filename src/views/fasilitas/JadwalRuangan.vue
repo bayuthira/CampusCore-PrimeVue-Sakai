@@ -1,4 +1,5 @@
 <script setup>
+import { useJadwalKuliahStore } from '@/stores/jadwalKuliah';
 import { useJadwalRuanganStore } from '@/stores/jadwalRuangan';
 import { useRuanganStore } from '@/stores/ruangan';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -13,6 +14,7 @@ import { onMounted, ref, watch } from 'vue';
 const toast = useToast();
 const jadwalRuanganStore = useJadwalRuanganStore();
 const ruanganStore = useRuanganStore();
+const jadwalStore = useJadwalKuliahStore();
 
 const { events } = storeToRefs(jadwalRuanganStore);
 const { ruanganList } = storeToRefs(ruanganStore);
@@ -112,14 +114,43 @@ function handleEventClick(clickInfo) {
     deleteDialog.value = true;
 }
 
-async function deleteData() {
+// Fungsi untuk menghapus satu event saja
+async function deleteSingleEvent() {
     try {
         await jadwalRuanganStore.deleteEvent(selectedEvent.value.id);
-        selectedEvent.value.remove();
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal berhasil dihapus', life: 3000 });
+        selectedEvent.value.remove(); // Hapus dari kalender
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Satu jadwal telah dihapus', life: 3000 });
         deleteDialog.value = false;
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
+    }
+}
+
+async function handleDeleteAll() {
+    const eventProps = selectedEvent.value.extendedProps;
+    try {
+        if (eventProps.recurring_event_id) {
+            // Jika ini acara berulang biasa
+            await jadwalRuanganStore.deleteRecurringEvent(eventProps.recurring_event_id);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Semua jadwal berulang telah dihapus.', life: 3000 });
+        } else if (eventProps.jadwal_kuliah_id) {
+            // Jika ini plot dari jadwal kuliah
+            await jadwalStore.unplotRuangan(eventProps.jadwal_kuliah_id);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Plot jadwal kuliah telah dihapus.', life: 3000 });
+        }
+
+        // Refresh kalender untuk menghapus semua event terkait
+        if (calendarRef.value) {
+            //   calendarRef.value.getApi().refetchEvents();
+            const calendarApi = calendarRef.value.getApi();
+            const view = calendarApi.view;
+            const start = formatDateTimeWithTimezone(view.activeStart);
+            const end = formatDateTimeWithTimezone(view.activeEnd);
+            await jadwalRuanganStore.fetchEvents(selectedRuangan.value, start, end);
+        }
+        deleteDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus semua jadwal terkait.', life: 3000 });
     }
 }
 
@@ -292,17 +323,27 @@ function handleEventContent(arg) {
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
+    <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
         <div class="flex items-center gap-4">
             <i class="pi pi-exclamation-triangle !text-3xl" />
             <span v-if="selectedEvent">
-                Apakah Anda yakin ingin menghapus jadwal <b>{{ selectedEvent.title }}</b
-                >?
+                Anda akan menghapus jadwal <b>{{ selectedEvent.title }}</b
+                >.
+
+                <div v-if="selectedEvent.extendedProps.recurring_event_id || selectedEvent.extendedProps.jadwal_kuliah_id" class="mt-4">Ini adalah jadwal rutin. Pilih aksi yang Anda inginkan:</div>
             </span>
         </div>
         <template #footer>
-            <Button label="Tidak" icon="pi pi-times" text @click="deleteDialog = false" />
-            <Button label="Ya" icon="pi pi-check" @click="deleteData" />
+            <div class="flex justify-end gap-2">
+                <Button label="Batal" icon="pi pi-times" text @click="deleteDialog = false" />
+
+                <Button v-if="!selectedEvent.extendedProps.recurring_event_id && !selectedEvent.extendedProps.jadwal_kuliah_id" label="Ya, Hapus" class="p-button-danger" icon="pi pi-trash" @click="deleteSingleEvent" />
+
+                <template v-if="selectedEvent.extendedProps.recurring_event_id || selectedEvent.extendedProps.jadwal_kuliah_id">
+                    <Button label="Hapus Ini Saja" icon="pi pi-trash" class="p-button-warning" @click="deleteSingleEvent" />
+                    <Button label="Hapus Semua" icon="pi pi-trash" class="p-button-danger" @click="handleDeleteAll" />
+                </template>
+            </div>
         </template>
     </Dialog>
 </template>

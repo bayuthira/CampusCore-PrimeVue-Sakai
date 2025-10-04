@@ -53,6 +53,14 @@ export const useJadwalRuanganStore = defineStore('jadwalRuangan', {
                 this.error = 'Gagal menghapus jadwal.';
                 throw e;
             }
+        },
+        async deleteRecurringEvent(recurringEventId) {
+            try {
+                await apiClient.delete(`/aset/ruangan/jadwal/recurring/${recurringEventId}`);
+            } catch (e) {
+                this.error = 'Gagal menghapus jadwal berulang.';
+                throw e;
+            }
         }
     }
 });

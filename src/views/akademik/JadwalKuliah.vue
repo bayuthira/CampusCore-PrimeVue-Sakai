@@ -323,7 +323,16 @@ function formatTimeToOffset(date) {
             </Column>
             <Column :exportable="false" header="Aksi">
                 <template #body="slotProps">
-                    <Button v-if="authStore.userData?.roles.includes('STAF_BAUM')" icon="pi pi-map-marker" outlined rounded severity="secondary" class="mr-2" @click="openPlotDialog(slotProps.data)" v-tooltip.top="'Plot Ruangan'" />
+                    <Button
+                        v-if="authStore.userData?.roles.includes('STAF_BAUM') || authStore.userData?.roles.includes('SUPER_ADMIN')"
+                        icon="pi pi-map-marker"
+                        outlined
+                        rounded
+                        severity="secondary"
+                        class="mr-2"
+                        @click="openPlotDialog(slotProps.data)"
+                        v-tooltip.top="'Plot Ruangan'"
+                    />
                     <Button
                         v-if="slotProps.data.ruangan_id && (authStore.userData?.roles.includes('STAF_BAUM') || authStore.userData?.roles.includes('SUPER_ADMIN'))"
                         icon="pi pi-times-circle"
