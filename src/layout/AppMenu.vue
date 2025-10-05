@@ -38,7 +38,8 @@ const fullMenu = [
             { label: 'Manajemen Jenis Aset', icon: 'pi pi-fw pi-tags', to: '/aset/jenis', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
             { label: 'Manajemen Aset', icon: 'pi pi-fw pi-box', to: '/aset/item', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
             { label: 'Manajemen Aset Habis Pakai', icon: 'pi pi-fw pi-box', to: '/aset/konsumsi', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
-            { label: 'Jadwal Ruangan', icon: 'pi pi-fw pi-calendar-clock', to: '/fasilitas/jadwal-ruangan', roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+            { label: 'Jadwal Ruangan', icon: 'pi pi-fw pi-calendar-clock', to: '/fasilitas/jadwal-ruangan', roles: ['SUPER_ADMIN', 'STAF_BAUM'] },
+            { label: 'Manajemen Kendaraan', icon: 'pi pi-fw pi-car', to: '/fleet/kendaraan', roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
         ]
     },
     {

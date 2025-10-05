@@ -86,6 +86,12 @@ const router = createRouter({
                     name: 'jadwal-ruangan',
                     component: () => import('@/views/fasilitas/JadwalRuangan.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                },
+                {
+                    path: '/fleet/kendaraan',
+                    name: 'manajemen-kendaraan',
+                    component: () => import('@/views/fleet/ManajemenKendaraan.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
                 }
             ]
         },
