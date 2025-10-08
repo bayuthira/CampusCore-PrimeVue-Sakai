@@ -50,6 +50,19 @@ export const useKendaraanStore = defineStore('kendaraan', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async tambahServis(kendaraanId, data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.post(`/fleet/kendaraan/${kendaraanId}/servis`, data);
+                // Tidak perlu refresh tabel utama karena hanya menambah histori servis
+            } catch (e) {
+                this.error = 'Gagal menambah biaya servis.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });

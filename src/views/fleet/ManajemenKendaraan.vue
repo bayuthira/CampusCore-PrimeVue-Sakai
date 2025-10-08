@@ -9,6 +9,9 @@ import { onMounted, ref } from 'vue';
 const toast = useToast();
 const store = useKendaraanStore();
 const { list, isLoading } = storeToRefs(store);
+const servisDialog = ref(false);
+const servisData = ref({});
+const selectedKendaraan = ref({});
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -88,6 +91,50 @@ async function deleteData() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
     }
 }
+
+// Fungsi untuk format tanggal YYYY-MM-DD
+function formatDate(date) {
+    if (!date) return null;
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function openServisDialog(data) {
+    selectedKendaraan.value = data;
+    servisData.value = {
+        tanggal_servis: new Date(),
+        odometer_saat_servis: null,
+        deskripsi: '',
+        biaya: null
+    };
+    submitted.value = false;
+    servisDialog.value = true;
+}
+
+async function saveServis() {
+    submitted.value = true;
+    if (!servisData.value.tanggal_servis || !servisData.value.biaya) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Tanggal dan Biaya Servis wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = {
+            ...servisData.value,
+            tanggal_servis: formatDate(servisData.value.tanggal_servis)
+        };
+
+        await store.tambahServis(selectedKendaraan.value.id, payload);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya servis berhasil ditambahkan', life: 3000 });
+        servisDialog.value = false;
+    } catch (error) {
+        const errorMessage = error.response?.data?.error || 'Terjadi kesalahan';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
 </script>
 
 <template>
@@ -134,6 +181,7 @@ async function deleteData() {
                 </Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
+                        <Button icon="pi pi-wrench" outlined rounded severity="secondary" class="mr-2" @click="openServisDialog(slotProps.data)" v-tooltip.top="'Tambah Biaya Servis'" />
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
                     </template>
@@ -190,6 +238,32 @@ async function deleteData() {
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteDialog = false" />
                 <Button label="Ya" icon="pi pi-check" @click="deleteData" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="servisDialog" :style="{ width: '450px' }" :header="`Tambah Biaya Servis: ${selectedKendaraan.nama}`" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="tanggal_servis" class="block font-bold mb-3">Tanggal Servis</label>
+                    <Calendar id="tanggal_servis" v-model="servisData.tanggal_servis" required dateFormat="yy-mm-dd" :invalid="submitted && !servisData.tanggal_servis" />
+                    <small v-if="submitted && !servisData.tanggal_servis" class="text-red-500">Tanggal Servis harus diisi.</small>
+                </div>
+                <div>
+                    <label for="odometer" class="block font-bold mb-3">Odometer (KM)</label>
+                    <InputNumber id="odometer" v-model="servisData.odometer_saat_servis" />
+                </div>
+                <div>
+                    <label for="biaya" class="block font-bold mb-3">Biaya (Rp)</label>
+                    <InputNumber id="biaya" v-model="servisData.biaya" mode="currency" currency="IDR" locale="id-ID" required :invalid="submitted && !servisData.biaya" />
+                    <small v-if="submitted && !servisData.biaya" class="text-red-500">Biaya harus diisi.</small>
+                </div>
+                <div>
+                    <label for="deskripsi_servis" class="block font-bold mb-3">Deskripsi</label>
+                    <Textarea id="deskripsi_servis" v-model.trim="servisData.deskripsi" rows="3" fluid />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="servisDialog = false" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveServis" />
             </template>
         </Dialog>
     </div>
