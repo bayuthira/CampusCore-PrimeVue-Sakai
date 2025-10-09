@@ -191,9 +191,10 @@ async function applyDateFilter() {
     }
 }
 
-watch([filterStartDate, filterEndDate], (newValues, oldValues) => {
-    // Hanya jalankan filter jika dialog sudah terbuka dan nilai tanggal benar-benar berubah
-    if (servisHistoryDialog.value && newValues[0] !== oldValues[0]) {
+watch([filterStartDate, filterEndDate], () => {
+    // Hanya jalankan filter jika dialog histori sedang terbuka.
+    // Watcher ini akan otomatis terpicu jika SALAH SATU tanggal berubah.
+    if (servisHistoryDialog.value) {
         applyDateFilter();
     }
 });

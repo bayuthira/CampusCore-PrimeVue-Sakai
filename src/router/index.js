@@ -92,6 +92,12 @@ const router = createRouter({
                     name: 'manajemen-kendaraan',
                     component: () => import('@/views/fleet/ManajemenKendaraan.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                },
+                {
+                    path: '/fleet/jadwal-kendaraan',
+                    name: 'jadwal-kendaraan',
+                    component: () => import('@/views/fleet/JadwalKendaraan.vue'),
+                    meta: { requiresAuth: true }
                 }
             ]
         },

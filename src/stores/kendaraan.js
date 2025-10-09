@@ -15,7 +15,11 @@ export const useKendaraanStore = defineStore('kendaraan', {
             this.error = null;
             try {
                 const response = await apiClient.get('/fleet/kendaraan');
-                this.list = response.data;
+                // Tambahkan properti 'display_label' ke setiap objek kendaraan
+                this.list = response.data.map((kendaraan) => ({
+                    ...kendaraan,
+                    display_label: `(${kendaraan.nomor_polisi}) ${kendaraan.nama}`
+                }));
             } catch (e) {
                 this.error = 'Gagal mengambil data kendaraan.';
             } finally {
