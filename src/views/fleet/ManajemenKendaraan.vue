@@ -3,15 +3,20 @@ import { useKendaraanStore } from '@/stores/kendaraan';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 // --- Setup ---
 const toast = useToast();
 const store = useKendaraanStore();
-const { list, isLoading } = storeToRefs(store);
+const { list, isLoading, servisHistory } = storeToRefs(store);
 const servisDialog = ref(false);
 const servisData = ref({});
 const selectedKendaraan = ref({});
+const servisHistoryDialog = ref(false);
+const deleteServisDialog = ref(false);
+const servisToDelete = ref(null);
+const filterStartDate = ref(null);
+const filterEndDate = ref(null);
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -102,14 +107,23 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-function openServisDialog(data) {
-    selectedKendaraan.value = data;
-    servisData.value = {
-        tanggal_servis: new Date(),
-        odometer_saat_servis: null,
-        deskripsi: '',
-        biaya: null
-    };
+function openServisDialog(kendaraanData, servisRecord = null) {
+    selectedKendaraan.value = kendaraanData;
+    if (servisRecord) {
+        // Mode Edit
+        servisData.value = {
+            ...servisRecord,
+            tanggal_servis: new Date(servisRecord.tanggal_servis)
+        };
+    } else {
+        // Mode Tambah Baru
+        servisData.value = {
+            tanggal_servis: new Date(),
+            odometer_saat_servis: null,
+            deskripsi: '',
+            biaya: null
+        };
+    }
     submitted.value = false;
     servisDialog.value = true;
 }
@@ -127,12 +141,76 @@ async function saveServis() {
             tanggal_servis: formatDate(servisData.value.tanggal_servis)
         };
 
-        await store.tambahServis(selectedKendaraan.value.id, payload);
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya servis berhasil ditambahkan', life: 3000 });
+        if (servisData.value.id) {
+            // Panggil fungsi update
+            await store.updateServis(servisData.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya servis berhasil diperbarui', life: 3000 });
+        } else {
+            // Panggil fungsi create
+            await store.tambahServis(selectedKendaraan.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Biaya servis berhasil ditambahkan', life: 3000 });
+        }
         servisDialog.value = false;
+        // Refresh daftar histori jika sedang terbuka
+        if (servisHistoryDialog.value) {
+            await applyDateFilter();
+        }
     } catch (error) {
         const errorMessage = error.response?.data?.error || 'Terjadi kesalahan';
         toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
+
+async function openServisHistoryDialog(kendaraan) {
+    selectedKendaraan.value = kendaraan;
+
+    // Atur tanggal default: awal dan akhir tahun ini
+    const now = new Date();
+    filterStartDate.value = new Date(now.getFullYear(), 0, 1);
+    filterEndDate.value = new Date(now.getFullYear(), 11, 31);
+
+    try {
+        // Langsung panggil store untuk mengambil data awal
+        await store.fetchServisHistory(selectedKendaraan.value.id, formatDate(filterStartDate.value), formatDate(filterEndDate.value));
+        // Buka dialog HANYA SETELAH data berhasil diambil
+        servisHistoryDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat histori servis.', life: 3000 });
+    }
+}
+
+async function applyDateFilter() {
+    if (!selectedKendaraan.value.id || !filterStartDate.value || !filterEndDate.value) {
+        return;
+    }
+    try {
+        // Cukup panggil aksi store, tidak perlu menangkap hasilnya
+        await store.fetchServisHistory(selectedKendaraan.value.id, formatDate(filterStartDate.value), formatDate(filterEndDate.value));
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memfilter histori.', life: 3000 });
+    }
+}
+
+watch([filterStartDate, filterEndDate], (newValues, oldValues) => {
+    // Hanya jalankan filter jika dialog sudah terbuka dan nilai tanggal benar-benar berubah
+    if (servisHistoryDialog.value && newValues[0] !== oldValues[0]) {
+        applyDateFilter();
+    }
+});
+
+function confirmDeleteServis(servis) {
+    servisToDelete.value = servis;
+    deleteServisDialog.value = true;
+}
+
+async function deleteServisRecord() {
+    try {
+        await store.deleteServis(servisToDelete.value.id);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Histori servis dihapus', life: 3000 });
+        await applyDateFilter();
+        deleteServisDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus histori servis', life: 3000 });
     }
 }
 </script>
@@ -182,6 +260,7 @@ async function saveServis() {
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
                         <Button icon="pi pi-wrench" outlined rounded severity="secondary" class="mr-2" @click="openServisDialog(slotProps.data)" v-tooltip.top="'Tambah Biaya Servis'" />
+                        <Button icon="pi pi-history" outlined rounded severity="info" class="mr-2" @click="openServisHistoryDialog(slotProps.data)" v-tooltip.top="'Lihat Histori Servis'" />
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
                     </template>
@@ -264,6 +343,52 @@ async function saveServis() {
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="servisDialog = false" />
                 <Button label="Simpan" icon="pi pi-check" @click="saveServis" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="servisHistoryDialog" :style="{ width: '75vw' }" maximizable :header="`Histori Servis: ${selectedKendaraan.nama}`" :modal="true">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 border-b pb-4">
+                <div>
+                    <label for="startDate" class="font-bold block mb-2">Dari Tanggal</label>
+                    <Calendar id="startDate" v-model="filterStartDate" dateFormat="yy-mm-dd" />
+                </div>
+                <div>
+                    <label for="endDate" class="font-bold block mb-2">Sampai Tanggal</label>
+                    <Calendar id="endDate" v-model="filterEndDate" dateFormat="yy-mm-dd" />
+                </div>
+            </div>
+            <DataTable :value="servisHistory" responsiveLayout="scroll">
+                <Column field="tanggal_servis" header="Tanggal" sortable></Column>
+                <Column field="odometer_saat_servis" header="Odometer (KM)" sortable></Column>
+                <Column field="biaya" header="Biaya" sortable>
+                    <template #body="slotProps">
+                        {{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(slotProps.data.biaya) }}
+                    </template>
+                </Column>
+                <Column field="deskripsi" header="Deskripsi"></Column>
+                <Column field="nama_pencatat" header="Dicatat Oleh" sortable></Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-pencil" text rounded class="mr-2" @click="openServisDialog(selectedKendaraan, slotProps.data)" v-tooltip.top="'Edit Servis'" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteServis(slotProps.data)" v-tooltip.top="'Hapus Servis'" />
+                    </template>
+                </Column>
+            </DataTable>
+            <template #footer>
+                <Button label="Tutup" icon="pi pi-times" @click="servisHistoryDialog = false" class="p-button-text" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deleteServisDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="servisToDelete">
+                    Apakah Anda yakin ingin menghapus data servis tanggal <b>{{ servisToDelete.tanggal_servis }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deleteServisDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteServisRecord" />
             </template>
         </Dialog>
     </div>

@@ -5,6 +5,7 @@ import { defineStore } from 'pinia';
 export const useKendaraanStore = defineStore('kendaraan', {
     state: () => ({
         list: [],
+        servisHistory: [],
         isLoading: false,
         error: null
     }),
@@ -59,6 +60,52 @@ export const useKendaraanStore = defineStore('kendaraan', {
                 // Tidak perlu refresh tabel utama karena hanya menambah histori servis
             } catch (e) {
                 this.error = 'Gagal menambah biaya servis.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async fetchServisHistory(kendaraanId, startDate, endDate) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await apiClient.get(`/fleet/kendaraan/${kendaraanId}/servis`, {
+                    params: {
+                        start_date: startDate,
+                        end_date: endDate
+                    }
+                });
+                // Isi state, jangan kembalikan data
+                this.servisHistory = response.data;
+            } catch (e) {
+                this.error = 'Gagal mengambil histori servis.';
+                this.servisHistory = []; // Kosongkan jika error
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async updateServis(servisId, data) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.put(`/fleet/servis/${servisId}`, data);
+            } catch (e) {
+                this.error = 'Gagal memperbarui data servis.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        async deleteServis(servisId) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                await apiClient.delete(`/fleet/servis/${servisId}`);
+            } catch (e) {
+                this.error = 'Gagal menghapus data servis.';
                 throw e;
             } finally {
                 this.isLoading = false;
