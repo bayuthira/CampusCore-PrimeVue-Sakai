@@ -15,6 +15,9 @@ const toast = useToast();
 const authStore = useAuthStore();
 const jadwalKendaraanStore = useJadwalKendaraanStore();
 const kendaraanStore = useKendaraanStore();
+const myBookingsDialog = ref(false);
+const myBookingsList = ref([]);
+const bookingSearch = ref('');
 
 const { events } = storeToRefs(jadwalKendaraanStore);
 const { list: kendaraanList } = storeToRefs(kendaraanStore);
@@ -56,6 +59,13 @@ const calendarOptions = ref({
         minute: '2-digit',
         hour12: false
     }
+});
+
+const filteredMyBookings = computed(() => {
+    if (!bookingSearch.value) {
+        return myBookingsList.value;
+    }
+    return myBookingsList.value.filter((booking) => Object.values(booking).some((val) => String(val).toLowerCase().includes(bookingSearch.value.toLowerCase())));
 });
 
 onMounted(() => {
@@ -234,11 +244,25 @@ function getSeverityForStatus(status) {
             return 'secondary';
     }
 }
+
+async function openMyBookingsDialog() {
+    try {
+        myBookingsList.value = await jadwalKendaraanStore.fetchMyBookings();
+        myBookingsDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Tidak dapat memuat daftar booking.', life: 3000 });
+    }
+}
 </script>
 
 <template>
     <div class="card">
         <h5>Jadwal Penggunaan Kendaraan</h5>
+        <Toolbar class="mb-6">
+            <template #start>
+                <Button label="Booking Saya" icon="pi pi-book" severity="info" class="mr-2" @click="openMyBookingsDialog" />
+            </template>
+        </Toolbar>
         <div class="grid">
             <div class="col-12 md:col-4">
                 <label for="kendaraan" class="font-bold block mb-2">Pilih Kendaraan</label>
@@ -365,6 +389,39 @@ function getSeverityForStatus(status) {
         <template #footer>
             <Button label="Batal" icon="pi pi-times" text @click="actionDialog = false" />
             <Button label="Simpan" icon="pi pi-check" @click="executeAction" />
+        </template>
+    </Dialog>
+    <Dialog v-model:visible="myBookingsDialog" :style="{ width: '75vw' }" maximizable header="Riwayat Booking Kendaraan Saya" :modal="true">
+        <DataTable :value="filteredMyBookings" :loading="isLoading" responsiveLayout="scroll" :paginator="true" :rows="10">
+            <template #header>
+                <div class="flex justify-end">
+                    <IconField>
+                        <InputIcon> <i class="pi pi-search" /> </InputIcon>
+                        <InputText v-model="bookingSearch" placeholder="Cari di riwayat..." />
+                    </IconField>
+                </div>
+            </template>
+
+            <Column field="nama_kendaraan" header="Kendaraan" sortable></Column>
+            <Column field="tujuan" header="Tujuan" sortable></Column>
+            <Column header="Jadwal Berangkat" sortable field="waktu_berangkat">
+                <template #body="slotProps">
+                    {{ new Date(slotProps.data.waktu_berangkat).toLocaleString('id-ID') }}
+                </template>
+            </Column>
+            <Column header="Estimasi Kembali" sortable field="estimasi_waktu_kembali">
+                <template #body="slotProps">
+                    {{ new Date(slotProps.data.estimasi_waktu_kembali).toLocaleString('id-ID') }}
+                </template>
+            </Column>
+            <Column field="status" header="Status" sortable>
+                <template #body="slotProps">
+                    <Tag :value="slotProps.data.status" :severity="getSeverityForStatus(slotProps.data.status)" />
+                </template>
+            </Column>
+        </DataTable>
+        <template #footer>
+            <Button label="Tutup" icon="pi pi-times" @click="myBookingsDialog = false" class="p-button-text" />
         </template>
     </Dialog>
 </template>

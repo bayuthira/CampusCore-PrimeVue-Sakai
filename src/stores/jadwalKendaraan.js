@@ -78,6 +78,19 @@ export const useJadwalKendaraanStore = defineStore('jadwalKendaraan', {
         },
         endTrip(bookingId, data) {
             return apiClient.post(`/fleet/bookings/${bookingId}/end-trip`, data);
+        },
+        async fetchMyBookings() {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await apiClient.get('/fleet/my-bookings');
+                return response.data; // Langsung kembalikan data
+            } catch (e) {
+                this.error = 'Gagal mengambil data booking saya.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });
