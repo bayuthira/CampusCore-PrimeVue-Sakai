@@ -18,7 +18,18 @@ const fullMenu = [
     },
     {
         label: 'Home',
-        items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' }]
+        // Link dashboard utama sekarang statis ke '/'
+        items: [{ label: 'Dashboard Utama', icon: 'pi pi-fw pi-home', to: '/' }]
+    },
+    // --- KATEGORI BARU UNTUK KUMPULAN DASHBOARD ---
+    {
+        label: 'Dashboards',
+        // Kategori ini hanya muncul jika user punya salah satu role dashboard
+        roles: ['STAF_BAUM', 'SUPER_ADMIN'],
+        items: [
+            { label: 'Dashboard BAUM', icon: 'pi pi-fw pi-chart-bar', to: '/dashboard-baum', roles: ['STAF_BAUM', 'SUPER_ADMIN'] }
+            // { label: 'Dashboard BAAK', icon: 'pi pi-fw pi-chart-pie', to: '/dashboard-baak', roles: ['STAF_AKADEMIK', 'SUPER_ADMIN'] }
+        ]
     },
     {
         label: 'Master Data',
