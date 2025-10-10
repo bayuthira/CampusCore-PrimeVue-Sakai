@@ -134,7 +134,7 @@ router.beforeEach(async (to, from, next) => {
     document.title = to.meta.title ? `${to.meta.title} | ${defaultTitle}` : defaultTitle;
     const authStore = useAuthStore();
     const isLoggedIn = authStore.isLoggedIn;
-    //  const userRoles = authStore.userData?.roles || [];
+    const userRoles = authStore.userData?.roles || [];
 
     // Cek apakah halaman tujuan butuh otentikasi
     if (to.meta.requiresAuth) {
@@ -160,11 +160,11 @@ router.beforeEach(async (to, from, next) => {
         return next({ name: 'dashboard' });
     }
     // Jika user sudah login dan mencoba ke halaman utama
-    //   if (to.name === 'dashboard' && isLoggedIn) {
-    //     if (userRoles.includes('STAF_BAUM')) {
-    //          return next({ name: 'dashboard-baum' }); // Arahkan ke dashboard BAUM
-    //      }
-    // }
+    if (to.name === 'dashboard' && isLoggedIn) {
+        if (userRoles.includes('STAF_BAUM')) {
+            return next({ name: 'dashboard-baum' }); // Arahkan ke dashboard BAUM
+        }
+    }
 
     // Jika semua kondisi aman, izinkan pengguna melanjutkan.
     next();
