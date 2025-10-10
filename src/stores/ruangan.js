@@ -10,15 +10,19 @@ export const useRuanganStore = defineStore('ruangan', {
     }),
     actions: {
         async fetchRuangan(query = '') {
-            // Terima parameter query
             this.isLoading = true;
             this.error = null;
             try {
-                // Tambahkan query 'q' jika ada isinya
                 const response = await apiClient.get('/aset/ruangan', {
                     params: { q: query }
                 });
-                this.ruanganList = response.data;
+
+                // TAMBAHKAN KEMBALI LOGIKA INI
+                // untuk menghitung dan menambahkan field 'luas'
+                this.ruanganList = response.data.map((ruangan) => ({
+                    ...ruangan,
+                    luas: ruangan.panjang && ruangan.lebar ? parseFloat(ruangan.panjang) * parseFloat(ruangan.lebar) : 0
+                }));
             } catch (e) {
                 this.error = 'Gagal mengambil data ruangan.';
             } finally {
