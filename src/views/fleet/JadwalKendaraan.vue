@@ -155,7 +155,11 @@ async function saveBooking() {
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Booking berhasil diajukan.', life: 3000 });
 
         if (selectedKendaraan.value && calendarRef.value) {
-            calendarRef.value.getApi().refetchEvents();
+            const calendarApi = calendarRef.value.getApi();
+            const view = calendarApi.view;
+            const start = formatDateTimeWithTimezone(view.activeStart);
+            const end = formatDateTimeWithTimezone(view.activeEnd);
+            await jadwalKendaraanStore.fetchBookings(selectedKendaraan.value, start, end);
         }
         bookingDialog.value = false;
     } catch (error) {

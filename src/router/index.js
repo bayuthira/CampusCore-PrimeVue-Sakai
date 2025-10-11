@@ -98,6 +98,12 @@ const router = createRouter({
                     name: 'jadwal-kendaraan',
                     component: () => import('@/views/fleet/JadwalKendaraan.vue'),
                     meta: { requiresAuth: true }
+                },
+                {
+                    path: '/dashboard-baum',
+                    name: 'dashboard-baum',
+                    component: () => import('@/views/dashboards/DashboardBaum.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
                 }
             ]
         },
@@ -128,6 +134,7 @@ router.beforeEach(async (to, from, next) => {
     document.title = to.meta.title ? `${to.meta.title} | ${defaultTitle}` : defaultTitle;
     const authStore = useAuthStore();
     const isLoggedIn = authStore.isLoggedIn;
+    const userRoles = authStore.userData?.roles || [];
 
     // Cek apakah halaman tujuan butuh otentikasi
     if (to.meta.requiresAuth) {
@@ -151,6 +158,12 @@ router.beforeEach(async (to, from, next) => {
     } else if (to.name === 'login' && isLoggedIn) {
         // Jika sudah login tapi mencoba akses halaman login, lempar ke dashboard
         return next({ name: 'dashboard' });
+    }
+    // Jika user sudah login dan mencoba ke halaman utama
+    if (to.name === 'dashboard' && isLoggedIn) {
+        if (userRoles.includes('STAF_BAUM')) {
+            return next({ name: 'dashboard-baum' }); // Arahkan ke dashboard BAUM
+        }
     }
 
     // Jika semua kondisi aman, izinkan pengguna melanjutkan.
