@@ -263,11 +263,10 @@ async function searchUser(event) {
 }
 
 function openBiayaDialog(data) {
-    // Simpan konteks aset yang dipilih
     selectedAset.value = data;
 
-    // Siapkan 'biayaData' sebagai objek baru yang kosong
     biayaData.value = {
+        nama_aset: data.nama_aset, // <-- Pastikan nama aset disalin ke sini
         tipe_biaya: null,
         deskripsi: '',
         jumlah: null,
@@ -338,14 +337,18 @@ async function openDaftarBiayaDialog(data) {
 }
 
 function editBiaya(data) {
-    // Menggunakan kembali dialog dan state 'tambah biaya'
+    // Siapkan data biaya yang akan diedit
     biayaData.value = { ...data };
 
-    // Konversi string tanggal kembali menjadi objek Date untuk komponen Calendar
+    // TAMBAHKAN NAMA ASET SECARA MANUAL DARI KONTEKS YANG SUDAH ADA
+    biayaData.value.nama_aset = selectedAset.value.nama_aset;
+
     if (data.tanggal_transaksi) {
         biayaData.value.tanggal_transaksi = new Date(data.tanggal_transaksi);
     }
 
+    // Reset status submit dan buka dialog
+    submitted.value = false;
     biayaDialog.value = true;
 }
 
@@ -664,7 +667,7 @@ function confirmHapusBukti(biaya) {
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="biayaDialog" :style="{ width: '450px' }" :header="`Tambah Biaya untuk: ${biayaData.nama_aset}`" :modal="true">
+        <Dialog v-model:visible="biayaDialog" :style="{ width: '450px' }" :header="`${biayaData.id ? 'Edit' : 'Tambah'} Biaya untuk: ${biayaData.nama_aset}`" :modal="true">
             <div class="flex flex-col gap-6">
                 <div>
                     <label for="tipe_biaya" class="block font-bold mb-3">Tipe Biaya</label>
