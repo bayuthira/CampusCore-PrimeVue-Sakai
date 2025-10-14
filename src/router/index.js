@@ -104,6 +104,12 @@ const router = createRouter({
                     name: 'dashboard-baum',
                     component: () => import('@/views/dashboards/DashboardBaum.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                },
+                {
+                    path: '/sdm/pegawai',
+                    name: 'manajemen-pegawai',
+                    component: () => import('@/views/sdm/ManajemenPegawai.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
                 }
             ]
         },
