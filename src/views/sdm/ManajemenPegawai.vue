@@ -1,4 +1,5 @@
 <script setup>
+import { useAuthStore } from '@/stores/auth';
 import { usePegawaiStore } from '@/stores/pegawai';
 import { useProdiStore } from '@/stores/prodi';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -12,6 +13,7 @@ const store = usePegawaiStore();
 const prodiStore = useProdiStore();
 const { list, isLoading } = storeToRefs(store);
 const { prodiList } = storeToRefs(prodiStore);
+const authStore = useAuthStore();
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -21,9 +23,15 @@ const dt = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
+const createUserDialog = ref(false);
+const userCreationData = ref({});
+const selectedPegawai = ref({});
 
 // Opsi untuk dropdown
-const jenisKelaminOptions = ref(['L', 'P']);
+const jenisKelaminOptions = ref([
+    { label: 'Laki-laki', value: 'L' },
+    { label: 'Perempuan', value: 'P' }
+]);
 const statusNikahOptions = ref(['Menikah', 'Belum Menikah', 'Cerai Hidup', 'Cerai Mati']);
 const kategoriPegawaiOptions = ref(['Tenaga Pendidik', 'Tenaga Kependidikan']);
 const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
@@ -107,6 +115,30 @@ async function deleteData() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
     }
 }
+
+function openCreateUserDialog(pegawai) {
+    selectedPegawai.value = pegawai;
+    userCreationData.value = { password: '' };
+    submitted.value = false; // Reset validation
+    createUserDialog.value = true;
+}
+
+async function saveUserAccount() {
+    submitted.value = true;
+    if (!userCreationData.value.password) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Password wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        await store.createUserAccount(selectedPegawai.value.id, userCreationData.value);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Akun user telah berhasil dibuat.', life: 3000 });
+        createUserDialog.value = false;
+    } catch (error) {
+        const errorMessage = error.response?.data?.error || 'Gagal membuat akun user.';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
 </script>
 
 <template>
@@ -148,88 +180,183 @@ async function deleteData() {
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
+                        <Button
+                            v-if="!slotProps.data.user_id && authStore.userData?.roles.includes('SUPER_ADMIN')"
+                            icon="pi pi-user-plus"
+                            outlined
+                            rounded
+                            severity="success"
+                            class="mr-2"
+                            @click="openCreateUserDialog(slotProps.data)"
+                            v-tooltip.top="'Buat Akun User'"
+                        />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
                     </template>
                 </Column>
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="dialog" :style="{ width: '750px' }" header="Detail Pegawai" :modal="true">
-            <div class="grid grid-cols-12 gap-4">
-                <div class="col-span-12 md:col-span-6 flex flex-col gap-6">
-                    <div>
-                        <label for="nik" class="block font-bold mb-3">NIK / Username *</label>
-                        <InputText id="nik" v-model.trim="data.nik" required autofocus :invalid="submitted && !data.nik" fluid />
-                    </div>
-                    <div>
-                        <label for="nama_lengkap" class="block font-bold mb-3">Nama Lengkap *</label>
-                        <InputText id="nama_lengkap" v-model.trim="data.nama_lengkap" required :invalid="submitted && !data.nama_lengkap" fluid />
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
+        <Dialog v-model:visible="dialog" :style="{ width: '70vw' }" header="Detail Pegawai" :modal="true">
+            <TabView>
+                <TabPanel header="Data Pribadi">
+                    <div class="grid grid-cols-12 gap-4 mt-4">
+                        <div class="col-span-12 md:col-span-4">
                             <label for="gelar_depan" class="block font-bold mb-3">Gelar Depan</label>
                             <InputText id="gelar_depan" v-model.trim="data.gelar_depan" fluid />
                         </div>
-                        <div>
+                        <div class="col-span-12 md:col-span-4">
+                            <label for="nama_lengkap" class="block font-bold mb-3">Nama Lengkap *</label>
+                            <InputText id="nama_lengkap" v-model.trim="data.nama_lengkap" required :invalid="submitted && !data.nama_lengkap" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4">
                             <label for="gelar_belakang" class="block font-bold mb-3">Gelar Belakang</label>
                             <InputText id="gelar_belakang" v-model.trim="data.gelar_belakang" fluid />
                         </div>
-                    </div>
-                    <div>
-                        <label for="email" class="block font-bold mb-3">Email</label>
-                        <InputText id="email" v-model.trim="data.email" fluid />
-                    </div>
-                    <div>
-                        <label for="no_ktp" class="block font-bold mb-3">No. KTP</label>
-                        <InputText id="no_ktp" v-model.trim="data.no_ktp" fluid />
-                    </div>
-                    <div>
-                        <label for="status_nikah" class="block font-bold mb-3">Status Nikah</label>
-                        <Dropdown id="status_nikah" v-model="data.status_nikah" :options="statusNikahOptions" placeholder="Pilih Status" fluid />
-                    </div>
-                    <div>
-                        <label for="jenis_kelamin" class="block font-bold mb-3">Jenis Kelamin</label>
-                        <Dropdown id="jenis_kelamin" v-model="data.jenis_kelamin" :options="jenisKelaminOptions" placeholder="Pilih" fluid />
-                    </div>
-                    <div v-if="!data.id">
-                        <label for="password" class="block font-bold mb-3">Password Akun</label>
-                        <Password id="password" v-model="data.password" :feedback="false" toggleMask fluid placeholder="Isi untuk membuat akun" />
-                    </div>
-                </div>
-                <div class="col-span-12 md:col-span-6 flex flex-col gap-6">
-                    <div>
-                        <label for="kategori_pegawai" class="block font-bold mb-3">Kategori Pegawai</label>
-                        <Dropdown id="kategori_pegawai" v-model="data.kategori_pegawai" :options="kategoriPegawaiOptions" placeholder="Pilih Kategori" fluid />
-                    </div>
-                    <template v-if="data.kategori_pegawai === 'Tenaga Pendidik'">
-                        <div>
-                            <label for="nidn" class="block font-bold mb-3">NIDN *</label>
-                            <InputText id="nidn" v-model.trim="data.nidn" fluid :invalid="submitted && !data.nidn" />
+
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="tempat_lahir" class="block font-bold mb-3">Tempat Lahir</label>
+                            <InputText id="tempat_lahir" v-model.trim="data.tempat_lahir" fluid />
                         </div>
-                        <div>
-                            <label for="prodi" class="block font-bold mb-3">Homebase Prodi *</label>
-                            <Dropdown id="prodi" v-model="data.prodi_id" :options="prodiList" optionLabel="nama_prodi" optionValue="id" placeholder="Pilih Prodi" :invalid="submitted && !data.prodi_id" fluid filter />
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="tanggal_lahir" class="block font-bold mb-3">Tanggal Lahir</label>
+                            <Calendar id="tanggal_lahir" v-model="data.tanggal_lahir" dateFormat="yy-mm-dd" />
                         </div>
-                    </template>
-                    <div>
-                        <label for="status_pegawai" class="block font-bold mb-3">Status Kepegawaian</label>
-                        <Dropdown id="status_pegawai" v-model="data.status_pegawai" :options="statusPegawaiOptions" placeholder="Pilih Status" fluid />
+
+                        <div class="col-span-12 md:col-span-4">
+                            <label for="jenis_kelamin" class="block font-bold mb-3">Jenis Kelamin</label>
+                            <Dropdown id="jenis_kelamin" v-model="data.jenis_kelamin" :options="jenisKelaminOptions" optionLabel="label" optionValue="value" placeholder="Pilih" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4">
+                            <label for="status_nikah" class="block font-bold mb-3">Status Nikah</label>
+                            <Dropdown id="status_nikah" v-model="data.status_nikah" :options="statusNikahOptions" placeholder="Pilih" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4">
+                            <label for="agama" class="block font-bold mb-3">Agama</label>
+                            <InputText id="agama" v-model.trim="data.agama" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4">
+                            <label for="gol_darah" class="block font-bold mb-3">Gol. Darah</label>
+                            <InputText id="gol_darah" v-model.trim="data.gol_darah" fluid />
+                        </div>
                     </div>
-                    <div>
-                        <label for="jabatan" class="block font-bold mb-3">Jabatan</label>
-                        <InputText id="jabatan" v-model.trim="data.jabatan" fluid />
+                </TabPanel>
+
+                <TabPanel header="Kontak & Alamat">
+                    <div class="grid grid-cols-12 gap-4 mt-4">
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="nomor_hp" class="block font-bold mb-3">No. HP</label>
+                            <InputText id="nomor_hp" v-model.trim="data.nomor_hp" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="email" class="block font-bold mb-3">Email</label>
+                            <InputText id="email" v-model.trim="data.email" fluid />
+                        </div>
+                        <div class="col-span-12">
+                            <label for="alamat_domisili" class="block font-bold mb-3">Alamat Domisili</label>
+                            <Textarea id="alamat_domisili" v-model.trim="data.alamat_domisili" rows="3" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="kota" class="block font-bold mb-3">Kota</label>
+                            <InputText id="kota" v-model.trim="data.kota" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="kode_pos" class="block font-bold mb-3">Kode Pos</label>
+                            <InputText id="kode_pos" v-model.trim="data.kode_pos" fluid />
+                        </div>
                     </div>
-                    <div>
-                        <label for="tanggal_masuk" class="block font-bold mb-3">Tanggal Masuk</label>
-                        <Calendar id="tanggal_masuk" v-model="data.tanggal_masuk" dateFormat="yy-mm-dd" />
+                </TabPanel>
+
+                <TabPanel header="Kepegawaian">
+                    <div class="grid grid-cols-12 gap-4 mt-4">
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="nik" class="block font-bold mb-3">NIK *</label>
+                            <InputText id="nik" v-model.trim="data.nik" required :invalid="submitted && !data.nik" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="status_pegawai" class="block font-bold mb-3">Status Kepegawaian</label>
+                            <Dropdown id="status_pegawai" v-model="data.status_pegawai" :options="statusPegawaiOptions" placeholder="Pilih Status" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="kategori_pegawai" class="block font-bold mb-3">Kategori Pegawai</label>
+                            <Dropdown id="kategori_pegawai" v-model="data.kategori_pegawai" :options="kategoriPegawaiOptions" placeholder="Pilih Kategori" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="jabatan" class="block font-bold mb-3">Jabatan</label>
+                            <InputText id="jabatan" v-model.trim="data.jabatan" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="unit_kerja" class="block font-bold mb-3">Unit Kerja</label>
+                            <InputText id="unit_kerja" v-model.trim="data.unit_kerja" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="bagian" class="block font-bold mb-3">Bagian</label>
+                            <InputText id="bagian" v-model.trim="data.bagian" fluid />
+                        </div>
+
+                        <template v-if="data.kategori_pegawai === 'Tenaga Pendidik'">
+                            <div class="col-span-12 md:col-span-6">
+                                <label for="nidn" class="block font-bold mb-3">NIDN *</label>
+                                <InputText id="nidn" v-model.trim="data.nidn" fluid :invalid="submitted && !data.nidn" />
+                            </div>
+                            <div class="col-span-12 md:col-span-6">
+                                <label for="prodi" class="block font-bold mb-3">Homebase Prodi *</label>
+                                <Dropdown id="prodi" v-model="data.prodi_id" :options="prodiList" optionLabel="nama_prodi" optionValue="id" placeholder="Pilih Prodi" :invalid="submitted && !data.prodi_id" fluid filter />
+                            </div>
+                        </template>
+
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="tanggal_masuk" class="block font-bold mb-3">Tanggal Masuk</label>
+                            <Calendar id="tanggal_masuk" v-model="data.tanggal_masuk" dateFormat="yy-mm-dd" />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="tanggal_pensiun" class="block font-bold mb-3">Tanggal Pensiun</label>
+                            <Calendar id="tanggal_pensiun" v-model="data.tanggal_pensiun" dateFormat="yy-mm-dd" />
+                        </div>
+                        <div class="col-span-12 flex items-center">
+                            <InputSwitch v-model="data.is_active" />
+                            <label for="is_active" class="ml-2 font-bold">Status Aktif</label>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </TabPanel>
+
+                <TabPanel header="Data Lain">
+                    <div class="grid grid-cols-12 gap-4 mt-4">
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="no_ktp" class="block font-bold mb-3">No. KTP</label>
+                            <InputText id="no_ktp" v-model.trim="data.no_ktp" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="no_kk" class="block font-bold mb-3">No. KK</label>
+                            <InputText id="no_kk" v-model.trim="data.no_kk" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="no_npwp" class="block font-bold mb-3">No. NPWP</label>
+                            <InputText id="no_npwp" v-model.trim="data.no_npwp" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="no_bpjs_kesehatan" class="block font-bold mb-3">No. BPJS Kesehatan</label>
+                            <InputText id="no_bpjs_kesehatan" v-model.trim="data.no_bpjs_kesehatan" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6">
+                            <label for="no_bpjs_ketenagakerjaan" class="block font-bold mb-3">No. BPJS Ketenagakerjaan</label>
+                            <InputText id="no_bpjs_ketenagakerjaan" v-model.trim="data.no_bpjs_ketenagakerjaan" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-6" v-if="!data.id">
+                            <label for="password" class="block font-bold mb-3">Password Akun (Opsional)</label>
+                            <Password id="password" v-model="data.password" :feedback="false" toggleMask fluid placeholder="Isi untuk membuat akun" />
+                        </div>
+                    </div>
+                </TabPanel>
+            </TabView>
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="hideDialog" />
                 <Button label="Simpan" icon="pi pi-check" @click="saveData" />
             </template>
         </Dialog>
+
+        <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true"> </Dialog>
+
+        <Dialog v-model:visible="createUserDialog" :style="{ width: '450px' }" :header="`Buat Akun untuk ${selectedPegawai.nama_lengkap}`" :modal="true"> </Dialog>
 
         <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
             <div class="flex items-center gap-4">
@@ -242,6 +369,17 @@ async function deleteData() {
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteDialog = false" />
                 <Button label="Ya" icon="pi pi-check" @click="deleteData" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="createUserDialog" :style="{ width: '450px' }" :header="`Buat Akun untuk ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <div class="field">
+                <label for="password_new_user" class="block font-bold mb-3">Password Awal</label>
+                <Password id="password_new_user" v-model="userCreationData.password" required autofocus :invalid="submitted && !userCreationData.password" :feedback="false" toggleMask fluid />
+                <small v-if="submitted && !userCreationData.password" class="p-error">Password wajib diisi.</small>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="createUserDialog = false" />
+                <Button label="Buat Akun" icon="pi pi-check" @click="saveUserAccount" />
             </template>
         </Dialog>
     </div>

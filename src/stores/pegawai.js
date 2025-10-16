@@ -50,6 +50,15 @@ export const usePegawaiStore = defineStore('pegawai', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async createUserAccount(pegawaiId, passwordData) {
+            this.isLoading = true;
+            try {
+                await apiClient.post(`/sdm/pegawai/${pegawaiId}/create-user`, passwordData);
+                await this.fetchAll(); // Refresh the list to update the user_id status
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });
