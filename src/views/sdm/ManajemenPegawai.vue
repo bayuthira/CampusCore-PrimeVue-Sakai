@@ -1,11 +1,13 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
 import { usePegawaiStore } from '@/stores/pegawai';
+import { usePendidikanStore } from '@/stores/pendidikan';
 import { useProdiStore } from '@/stores/prodi';
+import { useRiwayatSkStore } from '@/stores/riwayatSk';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 // --- Setup ---
 const toast = useToast();
@@ -13,7 +15,11 @@ const store = usePegawaiStore();
 const prodiStore = useProdiStore();
 const { list, isLoading } = storeToRefs(store);
 const { prodiList } = storeToRefs(prodiStore);
+const riwayatSkStore = useRiwayatSkStore();
 const authStore = useAuthStore();
+const pendidikanStore = usePendidikanStore();
+const { list: pendidikanList, isLoading: isPendidikanLoading } = storeToRefs(pendidikanStore);
+const { list: riwayatSkList, isLoading: isRiwayatSkLoading } = storeToRefs(riwayatSkStore);
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -26,6 +32,20 @@ const filters = ref({
 const createUserDialog = ref(false);
 const userCreationData = ref({});
 const selectedPegawai = ref({});
+
+const pendidikanListDialog = ref(false);
+const pendidikanFormDialog = ref(false);
+const deletePendidikanDialog = ref(false);
+const pendidikanData = ref({});
+const pendidikanSubmitted = ref(false);
+const isPendidikanNew = computed(() => !pendidikanData.value.id);
+
+const riwayatSkListDialog = ref(false);
+const riwayatSkFormDialog = ref(false);
+const deleteRiwayatSkDialog = ref(false);
+const riwayatSkData = ref({});
+const riwayatSkSubmitted = ref(false);
+const isRiwayatSkNew = computed(() => !riwayatSkData.value.id);
 
 // Opsi untuk dropdown
 const jenisKelaminOptions = ref([
@@ -139,6 +159,147 @@ async function saveUserAccount() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
     }
 }
+
+async function openPendidikanList(pegawai) {
+    selectedPegawai.value = pegawai;
+    try {
+        await pendidikanStore.fetchByPegawai(pegawai.id);
+        pendidikanListDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat pendidikan.', life: 3000 });
+    }
+}
+
+function openNewPendidikan() {
+    pendidikanData.value = {};
+    pendidikanSubmitted.value = false;
+    pendidikanFormDialog.value = true;
+}
+
+function editPendidikan(data) {
+    pendidikanData.value = { ...data };
+    pendidikanSubmitted.value = false;
+    pendidikanFormDialog.value = true;
+}
+
+function hidePendidikanDialog() {
+    pendidikanFormDialog.value = false;
+    pendidikanSubmitted.value = false;
+}
+
+async function savePendidikan() {
+    pendidikanSubmitted.value = true;
+    if (!pendidikanData.value.jenjang?.trim() || !pendidikanData.value.institusi?.trim() || !pendidikanData.value.tahun_lulus) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Jenjang, Institusi, dan Tahun Lulus wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = { ...pendidikanData.value };
+        if (isPendidikanNew.value) {
+            await pendidikanStore.create(selectedPegawai.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat pendidikan ditambahkan', life: 3000 });
+        } else {
+            await pendidikanStore.update(pendidikanData.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat pendidikan diperbarui', life: 3000 });
+        }
+
+        await pendidikanStore.fetchByPegawai(selectedPegawai.value.id); // Refresh list
+        pendidikanFormDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data', life: 3000 });
+    }
+}
+
+function confirmDeletePendidikan(data) {
+    pendidikanData.value = data;
+    deletePendidikanDialog.value = true;
+}
+
+async function deletePendidikan() {
+    try {
+        await pendidikanStore.delete(pendidikanData.value.id);
+        await pendidikanStore.fetchByPegawai(selectedPegawai.value.id); // Refresh list
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat pendidikan dihapus', life: 3000 });
+        deletePendidikanDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
+    }
+}
+
+async function openRiwayatSkList(pegawai) {
+    selectedPegawai.value = pegawai;
+    try {
+        await riwayatSkStore.fetchByPegawai(pegawai.id);
+        riwayatSkListDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat SK.', life: 3000 });
+    }
+}
+
+function openNewRiwayatSk() {
+    riwayatSkData.value = { tanggal_sk: new Date() };
+    riwayatSkSubmitted.value = false;
+    riwayatSkFormDialog.value = true;
+}
+
+function editRiwayatSk(data) {
+    riwayatSkData.value = {
+        ...data,
+        tanggal_sk: new Date(data.tanggal_sk)
+    };
+    riwayatSkSubmitted.value = false;
+    riwayatSkFormDialog.value = true;
+}
+
+function hideRiwayatSkDialog() {
+    riwayatSkFormDialog.value = false;
+    riwayatSkSubmitted.value = false;
+}
+
+async function saveRiwayatSk() {
+    riwayatSkSubmitted.value = true;
+    if (!riwayatSkData.value.nomor_sk?.trim() || !riwayatSkData.value.tanggal_sk || !riwayatSkData.value.jenis_sk) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Nomor, Tanggal, dan Jenis SK wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = {
+            ...riwayatSkData.value,
+            tanggal_sk: formatDate(riwayatSkData.value.tanggal_sk)
+        };
+
+        if (isRiwayatSkNew.value) {
+            await riwayatSkStore.create(selectedPegawai.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat SK ditambahkan', life: 3000 });
+        } else {
+            await riwayatSkStore.update(riwayatSkData.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat SK diperbarui', life: 3000 });
+        }
+
+        await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id); // Refresh list
+        riwayatSkFormDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data', life: 3000 });
+    }
+}
+
+function confirmDeleteRiwayatSk(data) {
+    riwayatSkData.value = data;
+    deleteRiwayatSkDialog.value = true;
+}
+
+async function deleteRiwayatSk() {
+    try {
+        await riwayatSkStore.delete(riwayatSkData.value.id);
+        await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id); // Refresh list
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat SK dihapus', life: 3000 });
+        deleteRiwayatSkDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -179,6 +340,8 @@ async function saveUserAccount() {
                 <Column field="nomor_hp" header="No. HP"></Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
+                        <Button icon="pi pi-book" outlined rounded severity="info" class="mr-2" @click="openPendidikanList(slotProps.data)" v-tooltip.top="'Riwayat Pendidikan'" />
+                        <Button icon="pi pi-file-o" outlined rounded severity="secondary" class="mr-2" @click="openRiwayatSkList(slotProps.data)" v-tooltip.top="'Riwayat SK'" />
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
                         <Button
                             v-if="!slotProps.data.user_id && authStore.userData?.roles.includes('SUPER_ADMIN')"
@@ -380,6 +543,128 @@ async function saveUserAccount() {
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="createUserDialog = false" />
                 <Button label="Buat Akun" icon="pi pi-check" @click="saveUserAccount" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="pendidikanListDialog" :style="{ width: '70vw' }" maximizable :header="`Riwayat Pendidikan: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <Toolbar class="mb-4">
+                <template #start>
+                    <Button label="Tambah Riwayat" icon="pi pi-plus" severity="secondary" @click="openNewPendidikan" />
+                </template>
+            </Toolbar>
+            <DataTable :value="pendidikanList" :loading="isPendidikanLoading">
+                <Column field="jenjang" header="Jenjang" sortable></Column>
+                <Column field="institusi" header="Institusi" sortable></Column>
+                <Column field="jurusan" header="Jurusan/Prodi" sortable></Column>
+                <Column field="tahun_lulus" header="Tahun Lulus" sortable></Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-pencil" text rounded @click="editPendidikan(slotProps.data)" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeletePendidikan(slotProps.data)" />
+                    </template>
+                </Column>
+            </DataTable>
+        </Dialog>
+
+        <Dialog v-model:visible="pendidikanFormDialog" :style="{ width: '450px' }" :header="isPendidikanNew ? 'Tambah Riwayat' : 'Edit Riwayat'" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="jenjang" class="block font-bold mb-3">Jenjang *</label>
+                    <InputText id="jenjang" v-model.trim="pendidikanData.jenjang" required autofocus :invalid="pendidikanSubmitted && !pendidikanData.jenjang" fluid />
+                    <small v-if="pendidikanSubmitted && !pendidikanData.jenjang" class="p-error">Jenjang wajib diisi (cth: S1, S2).</small>
+                </div>
+                <div>
+                    <label for="institusi" class="block font-bold mb-3">Institusi *</label>
+                    <InputText id="institusi" v-model.trim="pendidikanData.institusi" required :invalid="pendidikanSubmitted && !pendidikanData.institusi" fluid />
+                    <small v-if="pendidikanSubmitted && !pendidikanData.institusi" class="p-error">Institusi wajib diisi.</small>
+                </div>
+                <div>
+                    <label for="jurusan" class="block font-bold mb-3">Jurusan</label>
+                    <InputText id="jurusan" v-model.trim="pendidikanData.jurusan" fluid />
+                </div>
+                <div>
+                    <label for="tahun_lulus" class="block font-bold mb-3">Tahun Lulus *</label>
+                    <InputNumber id="tahun_lulus" v-model="pendidikanData.tahun_lulus" required :useGrouping="false" :invalid="pendidikanSubmitted && !pendidikanData.tahun_lulus" fluid />
+                    <small v-if="pendidikanSubmitted && !pendidikanData.tahun_lulus" class="p-error">Tahun lulus wajib diisi.</small>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="hidePendidikanDialog" />
+                <Button label="Simpan" icon="pi pi-check" @click="savePendidikan" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deletePendidikanDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="pendidikanData">
+                    Apakah Anda yakin ingin menghapus <b>{{ pendidikanData.jenjang }} - {{ pendidikanData.institusi }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deletePendidikanDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deletePendidikan" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="riwayatSkListDialog" :style="{ width: '70vw' }" maximizable :header="`Riwayat SK: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <Toolbar class="mb-4">
+                <template #start>
+                    <Button label="Tambah Riwayat SK" icon="pi pi-plus" severity="secondary" @click="openNewRiwayatSk" />
+                </template>
+            </Toolbar>
+            <DataTable :value="riwayatSkList" :loading="isRiwayatSkLoading">
+                <Column field="nomor_sk" header="Nomor SK" sortable></Column>
+                <Column field="tanggal_sk" header="Tanggal SK" sortable></Column>
+                <Column field="jenis_sk" header="Jenis SK" sortable></Column>
+                <Column field="jabatan" header="Jabatan" sortable></Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-pencil" text rounded @click="editRiwayatSk(slotProps.data)" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteRiwayatSk(slotProps.data)" />
+                    </template>
+                </Column>
+            </DataTable>
+        </Dialog>
+        <Dialog v-model:visible="riwayatSkFormDialog" :style="{ width: '450px' }" :header="isRiwayatSkNew ? 'Tambah Riwayat SK' : 'Edit Riwayat SK'" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="nomor_sk" class="block font-bold mb-3">Nomor SK *</label>
+                    <InputText id="nomor_sk" v-model.trim="riwayatSkData.nomor_sk" required autofocus :invalid="riwayatSkSubmitted && !riwayatSkData.nomor_sk" fluid />
+                </div>
+                <div>
+                    <label for="tanggal_sk" class="block font-bold mb-3">Tanggal SK *</label>
+                    <Calendar id="tanggal_sk" v-model="riwayatSkData.tanggal_sk" dateFormat="yy-mm-dd" required :invalid="riwayatSkSubmitted && !riwayatSkData.tanggal_sk" />
+                </div>
+                <div>
+                    <label for="jenis_sk" class="block font-bold mb-3">Jenis SK *</label>
+                    <InputText id="jenis_sk" v-model.trim="riwayatSkData.jenis_sk" required :invalid="riwayatSkSubmitted && !riwayatSkData.jenis_sk" fluid />
+                </div>
+                <div>
+                    <label for="jabatan_sk" class="block font-bold mb-3">Jabatan</label>
+                    <InputText id="jabatan_sk" v-model.trim="riwayatSkData.jabatan" fluid />
+                </div>
+                <div>
+                    <label for="keterangan_sk" class="block font-bold mb-3">Keterangan</label>
+                    <Textarea id="keterangan_sk" v-model.trim="riwayatSkData.keterangan" rows="3" fluid />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="hideRiwayatSkDialog" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveRiwayatSk" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deleteRiwayatSkDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="riwayatSkData">
+                    Apakah Anda yakin ingin menghapus SK Nomor <b>{{ riwayatSkData.nomor_sk }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deleteRiwayatSkDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteRiwayatSk" />
             </template>
         </Dialog>
     </div>
