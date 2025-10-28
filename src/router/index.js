@@ -109,7 +109,7 @@ const router = createRouter({
                     path: '/sdm/pegawai',
                     name: 'manajemen-pegawai',
                     component: () => import('@/views/sdm/ManajemenPegawai.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
                 }
             ]
         },
