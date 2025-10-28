@@ -1,16 +1,19 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
+import { useDokumenStore } from '@/stores/dokumen';
 import { usePegawaiStore } from '@/stores/pegawai';
 import { usePendidikanStore } from '@/stores/pendidikan';
 import { useProdiStore } from '@/stores/prodi';
 import { useRiwayatSkStore } from '@/stores/riwayatSk';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
+import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 // --- Setup ---
 const toast = useToast();
+const confirm = useConfirm();
 const store = usePegawaiStore();
 const prodiStore = useProdiStore();
 const { list, isLoading } = storeToRefs(store);
@@ -18,8 +21,10 @@ const { prodiList } = storeToRefs(prodiStore);
 const riwayatSkStore = useRiwayatSkStore();
 const authStore = useAuthStore();
 const pendidikanStore = usePendidikanStore();
+const dokumenStore = useDokumenStore();
 const { list: pendidikanList, isLoading: isPendidikanLoading } = storeToRefs(pendidikanStore);
 const { list: riwayatSkList, isLoading: isRiwayatSkLoading } = storeToRefs(riwayatSkStore);
+const { list: dokumenList, isLoading: isDokumenLoading } = storeToRefs(dokumenStore);
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -47,6 +52,14 @@ const riwayatSkData = ref({});
 const riwayatSkSubmitted = ref(false);
 const isRiwayatSkNew = computed(() => !riwayatSkData.value.id);
 
+const dokumenListDialog = ref(false);
+const selectedRecord = ref(null);
+const selectedRecordType = ref('');
+const fileToUpload = ref(null);
+const isBuktiLoading = ref(false);
+const uploadRef = ref(null);
+const uploadKategori = ref(null);
+
 // Opsi untuk dropdown
 const jenisKelaminOptions = ref([
     { label: 'Laki-laki', value: 'L' },
@@ -55,6 +68,21 @@ const jenisKelaminOptions = ref([
 const statusNikahOptions = ref(['Menikah', 'Belum Menikah', 'Cerai Hidup', 'Cerai Mati']);
 const kategoriPegawaiOptions = ref(['Tenaga Pendidik', 'Tenaga Kependidikan']);
 const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
+// const kategoriDokumenOptions = ref(['FotoProfil', 'KTP', 'KK', 'Ijazah', 'Transkrip', 'SK', 'Sertifikat', 'Lainnya']);
+const computedKategoriOptions = computed(() => {
+    // 'selectedRecordType' adalah ref yang sudah kita miliki
+    if (selectedRecordType.value === 'riwayat-sk') {
+        return ['SK', 'Lainnya'];
+    }
+    if (selectedRecordType.value === 'riwayat-pendidikan') {
+        return ['Ijazah', 'Transkrip', 'Lainnya'];
+    }
+    if (selectedRecordType.value === 'pegawai') {
+        // Semua kategori KECUALI yang spesifik untuk pendidikan/SK
+        return ['FotoProfil', 'KTP', 'KK', 'Sertifikat', 'Lainnya'];
+    }
+    return []; // Default
+});
 
 onMounted(() => {
     store.fetchAll();
@@ -300,6 +328,84 @@ async function deleteRiwayatSk() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
+
+async function openDokumenDialog(record, type, pegawaiNama) {
+    selectedRecord.value = record;
+    selectedRecordType.value = type;
+    selectedPegawai.value.nama_lengkap = pegawaiNama; // Untuk judul dialog
+    try {
+        await dokumenStore.fetchList(type, record.id);
+        dokumenListDialog.value = true;
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat dokumen.', life: 3000 });
+    }
+}
+
+function onFileSelect(event) {
+    fileToUpload.value = event.files[0];
+}
+
+async function handleUploadDokumen() {
+    if (!fileToUpload.value) {
+        toast.add({ severity: 'warn', summary: 'Peringatan', detail: 'Pilih file terlebih dahulu', life: 3000 });
+        return;
+    }
+
+    // --- PERBAIKAN: Validasi kategori baru ---
+    if (!uploadKategori.value) {
+        toast.add({ severity: 'warn', summary: 'Peringatan', detail: 'Kategori dokumen wajib dipilih', life: 3000 });
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileToUpload.value);
+    formData.append('kategori', uploadKategori.value); // <-- Selalu kirim kategori
+
+    try {
+        await dokumenStore.upload(selectedRecordType.value, selectedRecord.value.id, formData);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dokumen berhasil diupload', life: 3000 });
+
+        fileToUpload.value = null;
+        uploadKategori.value = null; // Reset kategori
+        if (uploadRef.value) {
+            uploadRef.value.clear();
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal mengupload file', life: 3000 });
+    }
+}
+
+function confirmDeleteDokumen(dokumen) {
+    confirm.require({
+        message: `Apakah Anda yakin ingin menghapus file ${dokumen.nama_file}?`,
+        header: 'Konfirmasi Hapus Dokumen',
+        icon: 'pi pi-exclamation-triangle',
+        acceptClass: 'p-button-danger',
+        accept: async () => {
+            try {
+                await dokumenStore.delete(dokumen.id);
+                dokumenStore.list = dokumenStore.list.filter((d) => d.id !== dokumen.id);
+                toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dokumen telah dihapus', life: 3000 });
+            } catch (error) {
+                toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus dokumen', life: 3000 });
+            }
+        }
+    });
+}
+
+async function viewDokumen(path) {
+    if (!path) return;
+    isBuktiLoading.value = true;
+    try {
+        const blob = await dokumenStore.viewFile(path);
+        const fileURL = URL.createObjectURL(blob);
+        window.open(fileURL, '_blank');
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    } finally {
+        isBuktiLoading.value = false;
+    }
+}
 </script>
 
 <template>
@@ -342,6 +448,7 @@ async function deleteRiwayatSk() {
                     <template #body="slotProps">
                         <Button icon="pi pi-book" outlined rounded severity="info" class="mr-2" @click="openPendidikanList(slotProps.data)" v-tooltip.top="'Riwayat Pendidikan'" />
                         <Button icon="pi pi-file-o" outlined rounded severity="secondary" class="mr-2" @click="openRiwayatSkList(slotProps.data)" v-tooltip.top="'Riwayat SK'" />
+                        <Button icon="pi pi-address-book" outlined rounded severity="help" class="mr-2" @click="openDokumenDialog(slotProps.data, 'pegawai', slotProps.data.nama_lengkap)" v-tooltip.top="'Dokumen Pegawai (KTP, Foto, dll)'" />
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
                         <Button
                             v-if="!slotProps.data.user_id && authStore.userData?.roles.includes('SUPER_ADMIN')"
@@ -558,6 +665,7 @@ async function deleteRiwayatSk() {
                 <Column field="tahun_lulus" header="Tahun Lulus" sortable></Column>
                 <Column header="Aksi">
                     <template #body="slotProps">
+                        <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data, 'riwayat-pendidikan', selectedPegawai.nama_lengkap)" v-tooltip.top="'Dokumen Ijazah/Transkrip'" />
                         <Button icon="pi pi-pencil" text rounded @click="editPendidikan(slotProps.data)" />
                         <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeletePendidikan(slotProps.data)" />
                     </template>
@@ -619,6 +727,7 @@ async function deleteRiwayatSk() {
                 <Column field="jabatan" header="Jabatan" sortable></Column>
                 <Column header="Aksi">
                     <template #body="slotProps">
+                        <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data, 'riwayat-sk', selectedPegawai.nama_lengkap)" v-tooltip.top="'Dokumen SK'" />
                         <Button icon="pi pi-pencil" text rounded @click="editRiwayatSk(slotProps.data)" />
                         <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteRiwayatSk(slotProps.data)" />
                     </template>
@@ -666,6 +775,30 @@ async function deleteRiwayatSk() {
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteRiwayatSkDialog = false" />
                 <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteRiwayatSk" />
             </template>
+        </Dialog>
+
+        <Dialog v-model:visible="dokumenListDialog" :style="{ width: '70vw' }" maximizable :header="`Manajemen Dokumen: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <Toolbar class="mb-4">
+                <template #start>
+                    <div class="flex flex-wrap gap-2">
+                        <Dropdown v-model="uploadKategori" :options="computedKategoriOptions" placeholder="Pilih Kategori Dokumen" class="w-full md:w-auto" />
+
+                        <FileUpload ref="uploadRef" mode="basic" name="dokumen" @select="onFileSelect" :auto="false" :customUpload="true" chooseLabel="Pilih File" accept="image/*,application/pdf" />
+                        <Button label="Upload" icon="pi pi-upload" @click="handleUploadDokumen" :disabled="!fileToUpload || isDokumenLoading" :loading="isDokumenLoading" />
+                    </div>
+                </template>
+            </Toolbar>
+
+            <DataTable :value="dokumenList" :loading="isDokumenLoading" responsiveLayout="scroll">
+                <Column field="nama_file_asli" header="Nama File" sortable></Column>
+                <Column field="kategori" header="Kategori" sortable></Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-eye" text rounded severity="info" @click="viewDokumen(slotProps.data.path_file)" :loading="isBuktiLoading" v-tooltip.top="'Lihat Dokumen'" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteDokumen(slotProps.data)" v-tooltip.top="'Hapus Dokumen'" />
+                    </template>
+                </Column>
+            </DataTable>
         </Dialog>
     </div>
 </template>
