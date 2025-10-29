@@ -73,7 +73,15 @@ const fullMenu = [
     {
         label: 'SDM',
         roles: ['SUPER_ADMIN', 'STAF_BASDM'],
-        items: [{ label: 'Manajemen Pegawai', icon: 'pi pi-fw pi-users', to: '/sdm/pegawai', roles: ['SUPER_ADMIN', 'STAF_BASDM'] }]
+        items: [
+            { label: 'Manajemen Pegawai', icon: 'pi pi-fw pi-users', to: '/sdm/pegawai', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
+            { label: 'Manajemen Jatah Cuti', icon: 'pi pi-fw pi-sliders-h', to: '/sdm/jatah-cuti', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
+            { label: 'Persetujuan Cuti', icon: 'pi pi-fw pi-calendar-check', to: '/sdm/persetujuan-cuti', roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+        ]
+    },
+    {
+        label: 'Layanan Pegawai',
+        items: [{ label: 'Pengajuan Cuti', icon: 'pi pi-fw pi-calendar-times', to: '/sdm/cuti-saya' }]
     }
 ];
 
