@@ -57,7 +57,10 @@ const fullMenu = [
     {
         label: 'Administrasi',
         roles: ['SUPER_ADMIN'], // Kategori menu ini hanya untuk SUPER_ADMIN
-        items: [{ label: 'Manajemen User', icon: 'pi pi-fw pi-users', to: '/admin/users', roles: ['SUPER_ADMIN'] }]
+        items: [
+            { label: 'Manajemen User', icon: 'pi pi-fw pi-users', to: '/admin/users', roles: ['SUPER_ADMIN'] },
+            { label: 'Manajemen File', icon: 'pi pi-fw pi-folder-open', to: '/admin/manajemen-file', roles: ['SUPER_ADMIN'] }
+        ]
     },
     {
         label: 'Perkuliahan',

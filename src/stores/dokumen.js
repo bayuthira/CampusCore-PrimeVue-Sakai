@@ -5,10 +5,23 @@ import { defineStore } from 'pinia';
 export const useDokumenStore = defineStore('dokumen', {
     state: () => ({
         list: [],
+        allList: [],
         isLoading: false,
         error: null
     }),
     actions: {
+        async fetchAllGlobal() {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await apiClient.get('/sdm/dokumen');
+                this.allList = response.data;
+            } catch (e) {
+                this.error = 'Gagal mengambil daftar semua dokumen.';
+            } finally {
+                this.isLoading = false;
+            }
+        },
         async fetchList(entityType, entityId) {
             this.isLoading = true;
             this.list = [];
