@@ -69,7 +69,7 @@ const fullMenu = [
     },
     {
         label: 'SDM',
-        roles: ['SUPER_ADMIN'],
+        roles: ['SUPER_ADMIN', 'STAF_BASDM'],
         items: [{ label: 'Manajemen Pegawai', icon: 'pi pi-fw pi-users', to: '/sdm/pegawai', roles: ['SUPER_ADMIN', 'STAF_BASDM'] }]
     }
 ];
