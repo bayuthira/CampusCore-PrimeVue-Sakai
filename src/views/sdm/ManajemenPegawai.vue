@@ -121,9 +121,16 @@ async function saveData() {
     try {
         const payload = {
             ...data.value,
+            // Format semua tanggal sebelum dikirim
             tanggal_lahir: formatDate(data.value.tanggal_lahir),
-            tanggal_masuk: formatDate(data.value.tanggal_masuk)
+            tanggal_masuk: formatDate(data.value.tanggal_masuk),
+            tanggal_pensiun: formatDate(data.value.tanggal_pensiun)
         };
+
+        if (typeof payload.jenis_kelamin === 'object' && payload.jenis_kelamin !== null) {
+            payload.jenis_kelamin = payload.jenis_kelamin.value;
+        }
+
         if (data.value.id) {
             await store.update(data.value.id, payload);
             toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai Diperbarui', life: 3000 });
