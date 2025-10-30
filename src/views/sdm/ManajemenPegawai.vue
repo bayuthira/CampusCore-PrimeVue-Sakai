@@ -1,10 +1,12 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
+import { useCutiStore } from '@/stores/cuti';
 import { useDokumenStore } from '@/stores/dokumen';
 import { usePegawaiStore } from '@/stores/pegawai';
 import { usePendidikanStore } from '@/stores/pendidikan';
 import { useProdiStore } from '@/stores/prodi';
 import { useRiwayatSkStore } from '@/stores/riwayatSk';
+import { useSertifikatStore } from '@/stores/sertifikat';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
@@ -20,11 +22,14 @@ const { list, isLoading } = storeToRefs(store);
 const { prodiList } = storeToRefs(prodiStore);
 const riwayatSkStore = useRiwayatSkStore();
 const authStore = useAuthStore();
+const cutiStore = useCutiStore();
 const pendidikanStore = usePendidikanStore();
 const dokumenStore = useDokumenStore();
+const sertifikatStore = useSertifikatStore();
 const { list: pendidikanList, isLoading: isPendidikanLoading } = storeToRefs(pendidikanStore);
 const { list: riwayatSkList, isLoading: isRiwayatSkLoading } = storeToRefs(riwayatSkStore);
 const { list: dokumenList, isLoading: isDokumenLoading } = storeToRefs(dokumenStore);
+const { list: sertifikatList, isLoading: isSertifikatLoading } = storeToRefs(sertifikatStore);
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -60,6 +65,20 @@ const isBuktiLoading = ref(false);
 const uploadRef = ref(null);
 const uploadKategori = ref(null);
 
+const jatahDialog = ref(false);
+const jatahData = ref({});
+const jatahSubmitted = ref(false);
+const viewJatahDialog = ref(false);
+const viewJatahData = ref(null);
+const { isLoading: isCutiLoading } = storeToRefs(cutiStore);
+
+const sertifikatListDialog = ref(false);
+const sertifikatFormDialog = ref(false);
+const deleteSertifikatDialog = ref(false);
+const sertifikatData = ref({});
+const sertifikatSubmitted = ref(false);
+const isSertifikatNew = computed(() => !sertifikatData.value.id);
+
 // Opsi untuk dropdown
 const jenisKelaminOptions = ref([
     { label: 'Laki-laki', value: 'L' },
@@ -68,6 +87,9 @@ const jenisKelaminOptions = ref([
 const statusNikahOptions = ref(['Menikah', 'Belum Menikah', 'Cerai Hidup', 'Cerai Mati']);
 const kategoriPegawaiOptions = ref(['Tenaga Pendidik', 'Tenaga Kependidikan']);
 const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
+const kategoriSertifikatOptions = ref(['Pelatihan', 'BIMTEK', 'Seminar', 'Workshop', 'Rekognisi Dosen']);
+const tingkatSertifikatOptions = ref(['Lokal', 'Nasional', 'Internasional']);
+
 // const kategoriDokumenOptions = ref(['FotoProfil', 'KTP', 'KK', 'Ijazah', 'Transkrip', 'SK', 'Sertifikat', 'Lainnya']);
 const computedKategoriOptions = computed(() => {
     // 'selectedRecordType' adalah ref yang sudah kita miliki
@@ -77,14 +99,18 @@ const computedKategoriOptions = computed(() => {
     if (selectedRecordType.value === 'riwayat-pendidikan') {
         return ['Ijazah', 'Transkrip', 'Lainnya'];
     }
+    if (selectedRecordType.value === 'riwayat-sertifikat') {
+        return ['Sertifikat', 'Lainnya'];
+    }
     if (selectedRecordType.value === 'pegawai') {
         // Semua kategori KECUALI yang spesifik untuk pendidikan/SK
-        return ['FotoProfil', 'KTP', 'KK', 'Sertifikat', 'Lainnya'];
+        return ['FotoProfil', 'KTP', 'KK', 'Lainnya'];
     }
     return []; // Default
 });
 
 onMounted(() => {
+    openSertifikatList;
     store.fetchAll();
     prodiStore.fetchProdi();
 });
@@ -413,6 +439,133 @@ async function viewDokumen(path) {
         isBuktiLoading.value = false;
     }
 }
+
+function openJatahDialog(pegawai) {
+    selectedPegawai.value = pegawai;
+    jatahData.value = {
+        pegawai_id: pegawai.id,
+        tahun: new Date().getFullYear(),
+        kuota_total: 12 // Default
+    };
+    jatahSubmitted.value = false;
+    jatahDialog.value = true;
+}
+
+async function saveJatahCuti() {
+    jatahSubmitted.value = true;
+    if (!jatahData.value.tahun || jatahData.value.kuota_total == null) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Tahun dan Kuota Total wajib diisi.', life: 3000 });
+        return;
+    }
+    try {
+        await cutiStore.setJatahCuti(jatahData.value);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jatah cuti berhasil diatur.', life: 3000 });
+        jatahDialog.value = false;
+    } catch (error) {
+        const errorMessage = error.response?.data?.error || 'Gagal menyimpan jatah cuti';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+    }
+}
+
+async function openViewJatahDialog(pegawai) {
+    selectedPegawai.value = pegawai;
+    viewJatahData.value = null; // Kosongkan data lama
+    viewJatahDialog.value = true;
+
+    try {
+        const currentYear = new Date().getFullYear();
+        // Panggil store untuk mengambil data
+        const dataArray = await cutiStore.fetchJatahCutiByPegawai(pegawai.id, currentYear);
+
+        if (dataArray && dataArray.length > 0) {
+            // Ambil data pertama dari array
+            const jatah = dataArray[0];
+            // Hitung sisa cuti di front-end
+            viewJatahData.value = {
+                ...jatah,
+                sisa_cuti: jatah.kuota_total - jatah.kuota_terpakai
+            };
+        } else {
+            viewJatahData.value = { error: `Data jatah cuti tidak ditemukan untuk tahun ${currentYear}.` };
+        }
+    } catch (error) {
+        viewJatahData.value = { error: 'Gagal memuat data jatah cuti.' };
+    }
+}
+
+async function openSertifikatList(pegawai) {
+    selectedPegawai.value = pegawai;
+    try {
+        await sertifikatStore.fetchByPegawai(pegawai.id);
+        sertifikatListDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat sertifikat.', life: 3000 });
+    }
+}
+
+function openNewSertifikat() {
+    sertifikatData.value = { tanggal_pelaksanaan: new Date() };
+    sertifikatSubmitted.value = false;
+    sertifikatFormDialog.value = true;
+}
+
+function editSertifikat(data) {
+    sertifikatData.value = {
+        ...data,
+        tanggal_pelaksanaan: new Date(data.tanggal_pelaksanaan)
+    };
+    sertifikatSubmitted.value = false;
+    sertifikatFormDialog.value = true;
+}
+
+function hideSertifikatDialog() {
+    sertifikatFormDialog.value = false;
+    sertifikatSubmitted.value = false;
+}
+
+async function saveSertifikat() {
+    sertifikatSubmitted.value = true;
+    if (!sertifikatData.value.jenis_sertifikat || !sertifikatData.value.judul_sertifikat?.trim() || !sertifikatData.value.tanggal_pelaksanaan) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Jenis, Judul, dan Tanggal Pelaksanaan wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = {
+            ...sertifikatData.value,
+            tanggal_pelaksanaan: formatDate(sertifikatData.value.tanggal_pelaksanaan)
+        };
+
+        if (isSertifikatNew.value) {
+            await sertifikatStore.create(selectedPegawai.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat sertifikat ditambahkan', life: 3000 });
+        } else {
+            await sertifikatStore.update(sertifikatData.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat sertifikat diperbarui', life: 3000 });
+        }
+
+        await sertifikatStore.fetchByPegawai(selectedPegawai.value.id); // Refresh list
+        sertifikatFormDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data', life: 3000 });
+    }
+}
+
+function confirmDeleteSertifikat(data) {
+    sertifikatData.value = data;
+    deleteSertifikatDialog.value = true;
+}
+
+async function deleteSertifikat() {
+    try {
+        await sertifikatStore.delete(sertifikatData.value.id);
+        await sertifikatStore.fetchByPegawai(selectedPegawai.value.id); // Refresh list
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat sertifikat dihapus', life: 3000 });
+        deleteSertifikatDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -455,7 +608,10 @@ async function viewDokumen(path) {
                     <template #body="slotProps">
                         <Button icon="pi pi-book" outlined rounded severity="info" class="mr-2" @click="openPendidikanList(slotProps.data)" v-tooltip.top="'Riwayat Pendidikan'" />
                         <Button icon="pi pi-file-o" outlined rounded severity="secondary" class="mr-2" @click="openRiwayatSkList(slotProps.data)" v-tooltip.top="'Riwayat SK'" />
+                        <Button icon="pi pi-id-card" outlined rounded severity="warning" class="mr-2" @click="openSertifikatList(slotProps.data)" v-tooltip.top="'Riwayat Sertifikat'" />
                         <Button icon="pi pi-address-book" outlined rounded severity="help" class="mr-2" @click="openDokumenDialog(slotProps.data, 'pegawai', slotProps.data.nama_lengkap)" v-tooltip.top="'Dokumen Pegawai (KTP, Foto, dll)'" />
+                        <Button icon="pi pi-cog" outlined rounded severity="secondary" class="mr-2" @click="openJatahDialog(slotProps.data)" v-tooltip.top="'Atur Jatah Cuti'" />
+                        <Button icon="pi pi-calendar-times" outlined rounded severity="help" class="mr-2" @click="openViewJatahDialog(slotProps.data)" v-tooltip.top="'Cek Jatah Cuti'" />
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
                         <Button
                             v-if="!slotProps.data.user_id && authStore.userData?.roles.includes('SUPER_ADMIN')"
@@ -806,6 +962,125 @@ async function viewDokumen(path) {
                     </template>
                 </Column>
             </DataTable>
+        </Dialog>
+
+        <Dialog v-model:visible="jatahDialog" :style="{ width: '450px' }" :header="`Atur Jatah Cuti: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="jatah_tahun" class="block font-bold mb-3">Tahun *</label>
+                    <InputNumber id="jatah_tahun" v-model="jatahData.tahun" :useGrouping="false" :invalid="jatahSubmitted && !jatahData.tahun" />
+                </div>
+                <div>
+                    <label for="jatah_kuota" class="block font-bold mb-3">Kuota Total *</label>
+                    <InputNumber id="jatah_kuota" v-model="jatahData.kuota_total" :invalid="jatahSubmitted && !jatahData.kuota_total" />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="jatahDialog = false" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveJatahCuti" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="viewJatahDialog" :style="{ width: '450px' }" :header="`Jatah Cuti: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <div v-if="isCutiLoading" class="text-center">
+                <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+                <p>Memuat data...</p>
+            </div>
+
+            <div v-else-if="viewJatahData && !viewJatahData.error" class="flex flex-col gap-4">
+                <div class="text-center font-bold text-xl mb-2">Tahun {{ viewJatahData.tahun }}</div>
+                <div class="surface-ground p-3 border-round">
+                    <div class="text-500 font-medium mb-1">Total Kuota</div>
+                    <div class="text-900 font-medium text-xl">{{ viewJatahData.kuota_total }} Hari</div>
+                </div>
+                <div class="surface-ground p-3 border-round">
+                    <div class="text-500 font-medium mb-1">Kuota Terpakai</div>
+                    <div class="text-900 font-medium text-xl">{{ viewJatahData.kuota_terpakai }} Hari</div>
+                </div>
+                <div class="surface-ground p-3 border-round">
+                    <div class="text-500 font-medium mb-1">Sisa Cuti</div>
+                    <div class="text-900 font-medium text-xl">{{ viewJatahData.sisa_cuti }} Hari</div>
+                </div>
+            </div>
+
+            <div v-else>
+                <p>{{ viewJatahData?.error || 'Gagal memuat data.' }}</p>
+            </div>
+
+            <template #footer>
+                <Button label="Tutup" icon="pi pi-times" @click="viewJatahDialog = false" class="p-button-text" />
+            </template>
+        </Dialog>
+        <Dialog v-model:visible="sertifikatListDialog" :style="{ width: '70vw' }" maximizable :header="`Riwayat Sertifikat: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <Toolbar class="mb-4">
+                <template #start>
+                    <Button label="Tambah Sertifikat" icon="pi pi-plus" severity="secondary" @click="openNewSertifikat" />
+                </template>
+            </Toolbar>
+            <DataTable :value="sertifikatList" :loading="isSertifikatLoading">
+                <Column field="judul_sertifikat" header="Judul Sertifikat" sortable></Column>
+                <Column field="jenis_sertifikat" header="Jenis" sortable></Column>
+                <Column field="tanggal_pelaksanaan" header="Tanggal" sortable></Column>
+                <Column field="tingkat" header="Tingkat" sortable></Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data, 'riwayat-sertifikat', selectedPegawai.nama_lengkap)" v-tooltip.top="'Dokumen Sertifikat'" />
+                        <Button icon="pi pi-pencil" text rounded @click="editSertifikat(slotProps.data)" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteSertifikat(slotProps.data)" />
+                    </template>
+                </Column>
+            </DataTable>
+        </Dialog>
+
+        <Dialog v-model:visible="sertifikatFormDialog" :style="{ width: '450px' }" :header="isSertifikatNew ? 'Tambah Sertifikat' : 'Edit Sertifikat'" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="jenis_sertifikat" class="block font-bold mb-3">Jenis Sertifikat *</label>
+                    <Dropdown id="jenis_sertifikat" v-model="sertifikatData.jenis_sertifikat" :options="kategoriSertifikatOptions" placeholder="Pilih Jenis" :invalid="sertifikatSubmitted && !sertifikatData.jenis_sertifikat" fluid />
+                </div>
+                <div>
+                    <label for="judul_sertifikat" class="block font-bold mb-3">Judul Sertifikat/Kegiatan *</label>
+                    <InputText id="judul_sertifikat" v-model.trim="sertifikatData.judul_sertifikat" required autofocus :invalid="sertifikatSubmitted && !sertifikatData.judul_sertifikat" fluid />
+                </div>
+                <div>
+                    <label for="tanggal_pelaksanaan" class="block font-bold mb-3">Tanggal Pelaksanaan *</label>
+                    <Calendar id="tanggal_pelaksanaan" v-model="sertifikatData.tanggal_pelaksanaan" dateFormat="yy-mm-dd" required :invalid="sertifikatSubmitted && !sertifikatData.tanggal_pelaksanaan" />
+                </div>
+                <div>
+                    <label for="tingkat" class="block font-bold mb-3">Tingkat</label>
+                    <Dropdown id="tingkat" v-model="sertifikatData.tingkat" :options="tingkatSertifikatOptions" placeholder="Pilih Tingkat" fluid />
+                </div>
+                <div>
+                    <label for="penyelenggara" class="block font-bold mb-3">Penyelenggara</label>
+                    <InputText id="penyelenggara" v-model.trim="sertifikatData.penyelenggara" fluid />
+                </div>
+                <div>
+                    <label for="nomor_sertifikat" class="block font-bold mb-3">Nomor Sertifikat</label>
+                    <InputText id="nomor_sertifikat" v-model.trim="sertifikatData.nomor_sertifikat" fluid />
+                </div>
+                <div>
+                    <label for="keterangan_sertifikat" class="block font-bold mb-3">Keterangan</label>
+                    <Textarea id="keterangan_sertifikat" v-model.trim="sertifikatData.keterangan" rows="3" fluid />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="hideSertifikatDialog" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveSertifikat" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deleteSertifikatDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="sertifikatData">
+                    Apakah Anda yakin ingin menghapus <b>{{ sertifikatData.judul_sertifikat }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deleteSertifikatDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteSertifikat" />
+            </template>
         </Dialog>
     </div>
 </template>

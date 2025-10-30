@@ -115,19 +115,13 @@ const router = createRouter({
                     path: '/admin/manajemen-file',
                     name: 'manajemen-file',
                     component: () => import('@/views/admin/ManajemenFile.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
                 },
                 {
                     path: '/sdm/cuti-saya',
                     name: 'cuti-saya',
                     component: () => import('@/views/sdm/CutiSaya.vue'),
                     meta: { requiresAuth: true } // Semua user login
-                },
-                {
-                    path: '/sdm/jatah-cuti',
-                    name: 'jatah-cuti',
-                    component: () => import('@/views/sdm/ManajemenJatahCuti.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
                 },
                 {
                     path: '/sdm/persetujuan-cuti',

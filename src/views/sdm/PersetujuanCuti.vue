@@ -128,26 +128,36 @@ function closeDetailDialog() {
         </div>
         <div class="col-12">
             <div class="card">
-                <DataTable :value="allLeaveList" :loading="isLoading" dataKey="id" :paginator="true" :rows="10">
+                <DataTable :value="allLeaveList" :loading="isLoading" dataKey="id" :paginator="true" :rows="10" responsiveLayout="scroll">
                     <template #header><h4 class="m-0">Daftar Pengajuan Cuti (Semua Status)</h4></template>
+
                     <Column field="pegawai_id" header="Nama Pegawai" sortable>
                         <template #body="slotProps">
                             {{ getNamaPegawai(slotProps.data.pegawai_id) }}
                         </template>
                     </Column>
-                    <Column field="tanggal_mulai" header="Tgl. Mulai" sortable></Column>
-                    <Column field="tanggal_selesai" header="Tgl. Selesai" sortable></Column>
+                    <Column field="tanggal_mulai" header="Tanggal Mulai" sortable></Column>
+                    <Column field="tanggal_selesai" header="Tanggal Selesai" sortable></Column>
+
+                    <Column field="tipe_cuti" header="Tipe" sortable></Column>
+
                     <Column field="jumlah_hari" header="Jumlah Hari"></Column>
+
+                    <Column field="alasan" header="Alasan"></Column>
+
                     <Column field="status" header="Status" sortable>
                         <template #body="slotProps">
                             <Tag :value="slotProps.data.status" :severity="slotProps.data.status === 'Disetujui' ? 'success' : slotProps.data.status === 'Ditolak' ? 'danger' : 'info'" />
                         </template>
                     </Column>
+
+                    <Column field="catatan_approval" header="Catatan Admin"></Column>
+
                     <Column header="Aksi">
                         <template #body="slotProps">
                             <div v-if="slotProps.data.status === 'Diajukan'">
-                                <Button icon="pi pi-check" severity="success" text rounded @click="openActionDialog(slotProps.data, 'Setujui')" class="mr-2" />
-                                <Button icon="pi pi-times" severity="danger" text rounded @click="openActionDialog(slotProps.data, 'Tolak')" />
+                                <Button icon="pi pi-check" severity="success" text rounded @click="openActionDialog(slotProps.data, 'Setujui')" class="mr-2" v-tooltip.top="'Setujui'" />
+                                <Button icon="pi pi-times" severity="danger" text rounded @click="openActionDialog(slotProps.data, 'Tolak')" v-tooltip.top="'Tolak'" />
                             </div>
                         </template>
                     </Column>
@@ -177,9 +187,18 @@ function closeDetailDialog() {
                 <span class="font-bold block">Tanggal:</span>
                 <span>{{ selectedCuti.tanggal_mulai }} s/d {{ selectedCuti.tanggal_selesai }} ({{ selectedCuti.jumlah_hari }} hari)</span>
             </div>
+
+            <div>
+                <span class="font-bold block">Tipe Cuti:</span>
+                <span>{{ selectedCuti.tipe_cuti }}</span>
+            </div>
             <div>
                 <span class="font-bold block">Alasan:</span>
-                <p class="m-0">{{ selectedCuti.alasan }}</p>
+                <p class="m-0">{{ selectedCuti.alasan || '-' }}</p>
+            </div>
+            <div v-if="selectedCuti.catatan_approval">
+                <span class="font-bold block">Catatan Admin:</span>
+                <p class="m-0">{{ selectedCuti.catatan_approval }}</p>
             </div>
         </div>
         <template #footer>

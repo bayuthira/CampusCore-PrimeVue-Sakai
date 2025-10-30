@@ -82,6 +82,21 @@ export const useCutiStore = defineStore('cuti', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        async fetchJatahCutiByPegawai(pegawaiId, tahun) {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await apiClient.get('/sdm/cuti/jatah', {
+                    params: { pegawai_id: pegawaiId, tahun: tahun }
+                });
+                return response.data; // Kembalikan data jatah
+            } catch (e) {
+                this.error = 'Gagal mengambil data jatah cuti.';
+                throw e;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });
