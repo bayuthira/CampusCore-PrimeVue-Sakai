@@ -137,14 +137,13 @@ function closeDetailDialog() {
                         </template>
                     </Column>
                     <Column field="tanggal_mulai" header="Tanggal Mulai" sortable></Column>
-                    <Column field="tanggal_selesai" header="Tanggal Selesai" sortable></Column>
+                    <Column field="tanggal_selesai" header="Tgl. Selesai" sortable></Column>
 
+                    <Column field="kategori" header="Kategori" sortable></Column>
                     <Column field="tipe_cuti" header="Tipe" sortable></Column>
 
                     <Column field="jumlah_hari" header="Jumlah Hari"></Column>
-
                     <Column field="alasan" header="Alasan"></Column>
-
                     <Column field="status" header="Status" sortable>
                         <template #body="slotProps">
                             <Tag :value="slotProps.data.status" :severity="slotProps.data.status === 'Disetujui' ? 'success' : slotProps.data.status === 'Ditolak' ? 'danger' : 'info'" />
@@ -183,14 +182,19 @@ function closeDetailDialog() {
                 <span class="font-bold block">Pegawai:</span>
                 <span>{{ getNamaPegawai(selectedCuti.pegawai_id) }}</span>
             </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-1">
+                    <span class="font-bold block">Kategori Cuti:</span>
+                    <span>{{ selectedCuti.kategori }}</span>
+                </div>
+                <div class="col-span-1">
+                    <span class="font-bold block">Tipe Cuti:</span>
+                    <span>{{ selectedCuti.tipe_cuti }}</span>
+                </div>
+            </div>
             <div>
                 <span class="font-bold block">Tanggal:</span>
                 <span>{{ selectedCuti.tanggal_mulai }} s/d {{ selectedCuti.tanggal_selesai }} ({{ selectedCuti.jumlah_hari }} hari)</span>
-            </div>
-
-            <div>
-                <span class="font-bold block">Tipe Cuti:</span>
-                <span>{{ selectedCuti.tipe_cuti }}</span>
             </div>
             <div>
                 <span class="font-bold block">Alasan:</span>

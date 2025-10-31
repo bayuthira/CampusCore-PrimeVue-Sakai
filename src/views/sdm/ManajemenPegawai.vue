@@ -2,6 +2,7 @@
 import { useAuthStore } from '@/stores/auth';
 import { useCutiStore } from '@/stores/cuti';
 import { useDokumenStore } from '@/stores/dokumen';
+import { useKarirDosenStore } from '@/stores/karirDosen';
 import { usePegawaiStore } from '@/stores/pegawai';
 import { usePendidikanStore } from '@/stores/pendidikan';
 import { useProdiStore } from '@/stores/prodi';
@@ -26,10 +27,12 @@ const cutiStore = useCutiStore();
 const pendidikanStore = usePendidikanStore();
 const dokumenStore = useDokumenStore();
 const sertifikatStore = useSertifikatStore();
+const karirDosenStore = useKarirDosenStore();
 const { list: pendidikanList, isLoading: isPendidikanLoading } = storeToRefs(pendidikanStore);
 const { list: riwayatSkList, isLoading: isRiwayatSkLoading } = storeToRefs(riwayatSkStore);
 const { list: dokumenList, isLoading: isDokumenLoading } = storeToRefs(dokumenStore);
 const { list: sertifikatList, isLoading: isSertifikatLoading } = storeToRefs(sertifikatStore);
+const { jadList, serdosList, isLoading: isKarirDosenLoading } = storeToRefs(karirDosenStore);
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -79,6 +82,19 @@ const sertifikatData = ref({});
 const sertifikatSubmitted = ref(false);
 const isSertifikatNew = computed(() => !sertifikatData.value.id);
 
+const karirDosenDialog = ref(false);
+const jadFormDialog = ref(false);
+const deleteJadDialog = ref(false);
+const jadData = ref({});
+const jadSubmitted = ref(false);
+const isJadNew = computed(() => !jadData.value.id);
+
+const serdosFormDialog = ref(false);
+const deleteSerdosDialog = ref(false);
+const serdosData = ref({});
+const serdosSubmitted = ref(false);
+const isSerdosNew = computed(() => !serdosData.value.id);
+
 // Opsi untuk dropdown
 const jenisKelaminOptions = ref([
     { label: 'Laki-laki', value: 'L' },
@@ -89,6 +105,8 @@ const kategoriPegawaiOptions = ref(['Tenaga Pendidik', 'Tenaga Kependidikan']);
 const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
 const kategoriSertifikatOptions = ref(['Pelatihan', 'BIMTEK', 'Seminar', 'Workshop', 'Rekognisi Dosen']);
 const tingkatSertifikatOptions = ref(['Lokal', 'Nasional', 'Internasional']);
+const jabatanAkademikOptions = ref(['Asisten Ahli', 'Lektor', 'Lektor Kepala', 'Guru Besar']);
+const pangkatGolonganOptions = ref(['III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e']);
 
 // const kategoriDokumenOptions = ref(['FotoProfil', 'KTP', 'KK', 'Ijazah', 'Transkrip', 'SK', 'Sertifikat', 'Lainnya']);
 const computedKategoriOptions = computed(() => {
@@ -102,6 +120,8 @@ const computedKategoriOptions = computed(() => {
     if (selectedRecordType.value === 'riwayat-sertifikat') {
         return ['Sertifikat', 'Lainnya'];
     }
+    if (selectedRecordType.value === 'riwayat-jad') return ['SK', 'Lainnya'];
+    if (selectedRecordType.value === 'riwayat-serdos') return ['Sertifikat', 'Lainnya'];
     if (selectedRecordType.value === 'pegawai') {
         // Semua kategori KECUALI yang spesifik untuk pendidikan/SK
         return ['FotoProfil', 'KTP', 'KK', 'Lainnya'];
@@ -566,6 +586,121 @@ async function deleteSertifikat() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
+
+async function openKarirDosenDialog(pegawai) {
+    selectedPegawai.value = pegawai;
+    try {
+        // Ambil data JAD dan SERDOS sekaligus
+        await Promise.all([karirDosenStore.fetchJad(pegawai.id), karirDosenStore.fetchSerdos(pegawai.id)]);
+        karirDosenDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat data karir dosen.', life: 3000 });
+    }
+}
+
+// --- FUNGSI JAD ---
+function openNewJad() {
+    jadData.value = { tmt: new Date() };
+    jadSubmitted.value = false;
+    jadFormDialog.value = true;
+}
+
+function editJad(data) {
+    jadData.value = { ...data, tmt: new Date(data.tmt) };
+    jadSubmitted.value = false;
+    jadFormDialog.value = true;
+}
+
+async function saveJad() {
+    jadSubmitted.value = true;
+    if (!jadData.value.jabatan_akademik || !jadData.value.pangkat_golongan || !jadData.value.nomor_sk?.trim() || !jadData.value.tmt) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Semua field wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = { ...jadData.value, tmt: formatDate(jadData.value.tmt) };
+        if (isJadNew.value) {
+            await karirDosenStore.createJad(selectedPegawai.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat JAD ditambahkan', life: 3000 });
+        } else {
+            await karirDosenStore.updateJad(jadData.value.id, payload);
+            await karirDosenStore.fetchJad(selectedPegawai.value.id); // Update manual list JAD
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat JAD diperbarui', life: 3000 });
+        }
+        jadFormDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data JAD', life: 3000 });
+    }
+}
+
+function confirmDeleteJad(data) {
+    jadData.value = data;
+    deleteJadDialog.value = true;
+}
+
+async function deleteJad() {
+    try {
+        await karirDosenStore.deleteJad(jadData.value.id);
+        await karirDosenStore.fetchJad(selectedPegawai.value.id);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat JAD dihapus', life: 3000 });
+        deleteJadDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
+    }
+}
+
+// --- FUNGSI SERDOS ---
+function openNewSerdos() {
+    serdosData.value = { tanggal_terbit: new Date() };
+    serdosSubmitted.value = false;
+    serdosFormDialog.value = true;
+}
+
+function editSerdos(data) {
+    serdosData.value = { ...data, tanggal_terbit: new Date(data.tanggal_terbit) };
+    serdosSubmitted.value = false;
+    serdosFormDialog.value = true;
+}
+
+async function saveSerdos() {
+    serdosSubmitted.value = true;
+    if (!serdosData.value.nomor_sertifikat?.trim() || !serdosData.value.tanggal_terbit) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Nomor Sertifikat dan Tanggal Terbit wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = { ...serdosData.value, tanggal_terbit: formatDate(serdosData.value.tanggal_terbit) };
+        if (isSerdosNew.value) {
+            await karirDosenStore.createSerdos(selectedPegawai.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat SERDOS ditambahkan', life: 3000 });
+        } else {
+            await karirDosenStore.updateSerdos(serdosData.value.id, payload);
+            await karirDosenStore.fetchSerdos(selectedPegawai.value.id); // Update manual list SERDOS
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat SERDOS diperbarui', life: 3000 });
+        }
+        serdosFormDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data SERDOS', life: 3000 });
+    }
+}
+
+function confirmDeleteSerdos(data) {
+    serdosData.value = data;
+    deleteSerdosDialog.value = true;
+}
+
+async function deleteSerdos() {
+    try {
+        await karirDosenStore.deleteSerdos(serdosData.value.id);
+        await karirDosenStore.fetchSerdos(selectedPegawai.value.id);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat SERDOS dihapus', life: 3000 });
+        deleteSerdosDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -606,6 +741,16 @@ async function deleteSertifikat() {
                 <Column field="nomor_hp" header="No. HP"></Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
+                        <Button
+                            v-if="slotProps.data.kategori_pegawai === 'Tenaga Pendidik'"
+                            icon="pi pi-star"
+                            outlined
+                            rounded
+                            severity="success"
+                            class="mr-2"
+                            @click="openKarirDosenDialog(slotProps.data)"
+                            v-tooltip.top="'Karir Dosen (JAD/SERDOS)'"
+                        />
                         <Button icon="pi pi-book" outlined rounded severity="info" class="mr-2" @click="openPendidikanList(slotProps.data)" v-tooltip.top="'Riwayat Pendidikan'" />
                         <Button icon="pi pi-file-o" outlined rounded severity="secondary" class="mr-2" @click="openRiwayatSkList(slotProps.data)" v-tooltip.top="'Riwayat SK'" />
                         <Button icon="pi pi-id-card" outlined rounded severity="warning" class="mr-2" @click="openSertifikatList(slotProps.data)" v-tooltip.top="'Riwayat Sertifikat'" />
@@ -1080,6 +1225,127 @@ async function deleteSertifikat() {
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteSertifikatDialog = false" />
                 <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteSertifikat" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="karirDosenDialog" :style="{ width: '80vw' }" maximizable :header="`Karir Dosen: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <TabView>
+                <TabPanel header="Riwayat Jabatan Akademik (JAD)">
+                    <Toolbar class="mb-4">
+                        <template #start>
+                            <Button label="Tambah JAD" icon="pi pi-plus" severity="secondary" @click="openNewJad" />
+                        </template>
+                    </Toolbar>
+                    <DataTable :value="jadList" :loading="isKarirDosenLoading">
+                        <Column field="jabatan_akademik" header="Jabatan Akademik" sortable></Column>
+                        <Column field="pangkat_golongan" header="Pangkat/Gol" sortable></Column>
+                        <Column field="nomor_sk" header="Nomor SK"></Column>
+                        <Column field="tmt" header="TMT" sortable></Column>
+                        <Column header="Aksi">
+                            <template #body="slotProps">
+                                <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data, 'riwayat-jad', selectedPegawai.nama_lengkap)" v-tooltip.top="'Dokumen SK JAD'" />
+                                <Button icon="pi pi-pencil" text rounded @click="editJad(slotProps.data)" />
+                                <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteJad(slotProps.data)" />
+                            </template>
+                        </Column>
+                    </DataTable>
+                </TabPanel>
+                <TabPanel header="Riwayat Sertifikasi Dosen (SERDOS)">
+                    <Toolbar class="mb-4">
+                        <template #start>
+                            <Button label="Tambah SERDOS" icon="pi pi-plus" severity="secondary" @click="openNewSerdos" />
+                        </template>
+                    </Toolbar>
+                    <DataTable :value="serdosList" :loading="isKarirDosenLoading">
+                        <Column field="nomor_sertifikat" header="Nomor Sertifikat" sortable></Column>
+                        <Column field="tanggal_terbit" header="Tanggal Terbit" sortable></Column>
+                        <Column field="keterangan" header="Keterangan"></Column>
+                        <Column header="Aksi">
+                            <template #body="slotProps">
+                                <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data, 'riwayat-serdos', selectedPegawai.nama_lengkap)" v-tooltip.top="'Dokumen Sertifikat'" />
+                                <Button icon="pi pi-pencil" text rounded @click="editSerdos(slotProps.data)" />
+                                <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteSerdos(slotProps.data)" />
+                            </template>
+                        </Column>
+                    </DataTable>
+                </TabPanel>
+            </TabView>
+        </Dialog>
+
+        <Dialog v-model:visible="jadFormDialog" :style="{ width: '450px' }" :header="isJadNew ? 'Tambah Riwayat JAD' : 'Edit Riwayat JAD'" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label class="block font-bold mb-3">Jabatan Akademik *</label>
+                    <Dropdown v-model="jadData.jabatan_akademik" :options="jabatanAkademikOptions" placeholder="Pilih Jabatan" :invalid="jadSubmitted && !jadData.jabatan_akademik" fluid />
+                </div>
+                <div>
+                    <label class="block font-bold mb-3">Pangkat / Golongan *</label>
+                    <Dropdown v-model="jadData.pangkat_golongan" :options="pangkatGolonganOptions" placeholder="Pilih Pangkat" :invalid="jadSubmitted && !jadData.pangkat_golongan" fluid />
+                </div>
+                <div>
+                    <label class="block font-bold mb-3">Nomor SK *</label>
+                    <InputText v-model.trim="jadData.nomor_sk" required :invalid="jadSubmitted && !jadData.nomor_sk" fluid />
+                </div>
+                <div>
+                    <label class="block font-bold mb-3">TMT (Tanggal Mulai Tugas) *</label>
+                    <Calendar v-model="jadData.tmt" dateFormat="yy-mm-dd" required :invalid="jadSubmitted && !jadData.tmt" />
+                </div>
+                <div>
+                    <label class="block font-bold mb-3">Kompetensi MK</label>
+                    <InputText v-model.trim="jadData.kompetensi_mk" fluid />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="jadFormDialog = false" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveJad" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deleteJadDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="jadData"
+                    >Apakah Anda yakin ingin menghapus <b>{{ jadData.jabatan_akademik }} ({{ jadData.nomor_sk }})</b>?</span
+                >
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deleteJadDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteJad" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="serdosFormDialog" :style="{ width: '450px' }" :header="isSerdosNew ? 'Tambah Riwayat SERDOS' : 'Edit Riwayat SERDOS'" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label class="block font-bold mb-3">Nomor Sertifikat *</label>
+                    <InputText v-model.trim="serdosData.nomor_sertifikat" required autofocus :invalid="serdosSubmitted && !serdosData.nomor_sertifikat" fluid />
+                </div>
+                <div>
+                    <label class="block font-bold mb-3">Tanggal Terbit *</label>
+                    <Calendar v-model="serdosData.tanggal_terbit" dateFormat="yy-mm-dd" required :invalid="serdosSubmitted && !serdosData.tanggal_terbit" />
+                </div>
+                <div>
+                    <label class="block font-bold mb-3">Keterangan</label>
+                    <Textarea v-model.trim="serdosData.keterangan" rows="3" fluid />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="serdosFormDialog = false" />
+                <Button label="Simpan" icon="pi pi-check" @click="saveSerdos" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deleteSerdosDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="serdosData"
+                    >Apakah Anda yakin ingin menghapus <b>{{ serdosData.nomor_sertifikat }}</b
+                    >?</span
+                >
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deleteSerdosDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteSerdos" />
             </template>
         </Dialog>
     </div>

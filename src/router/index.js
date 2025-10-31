@@ -79,55 +79,55 @@ const router = createRouter({
                     path: '/akademik/tahun-akademik',
                     name: 'tahun-akademik',
                     component: () => import('@/views/akademik/TahunAkademik.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN'], title: 'Tahun Akademik' }
                 },
                 {
                     path: '/fasilitas/jadwal-ruangan',
                     name: 'jadwal-ruangan',
                     component: () => import('@/views/fasilitas/JadwalRuangan.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'], title: 'Jadwal Ruangan' }
                 },
                 {
                     path: '/fleet/kendaraan',
                     name: 'manajemen-kendaraan',
                     component: () => import('@/views/fleet/ManajemenKendaraan.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'], title: 'Manajemen Kendaraan' }
                 },
                 {
                     path: '/fleet/jadwal-kendaraan',
                     name: 'jadwal-kendaraan',
                     component: () => import('@/views/fleet/JadwalKendaraan.vue'),
-                    meta: { requiresAuth: true }
+                    meta: { requiresAuth: true, title: 'Jadwal Kendaraan' }
                 },
                 {
                     path: '/dashboard-baum',
                     name: 'dashboard-baum',
                     component: () => import('@/views/dashboards/DashboardBaum.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BAUM'], title: 'Dashboard BAUM' }
                 },
                 {
                     path: '/sdm/pegawai',
                     name: 'manajemen-pegawai',
                     component: () => import('@/views/sdm/ManajemenPegawai.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Manajemen Pegawai' }
                 },
                 {
                     path: '/admin/manajemen-file',
                     name: 'manajemen-file',
                     component: () => import('@/views/admin/ManajemenFile.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Manajemen File' }
                 },
                 {
                     path: '/sdm/cuti-saya',
                     name: 'cuti-saya',
                     component: () => import('@/views/sdm/CutiSaya.vue'),
-                    meta: { requiresAuth: true } // Semua user login
+                    meta: { requiresAuth: true, title: 'Manajemen Cuti' }
                 },
                 {
                     path: '/sdm/persetujuan-cuti',
                     name: 'persetujuan-cuti',
                     component: () => import('@/views/sdm/PersetujuanCuti.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Persetujuan Cuti' }
                 }
             ]
         },
@@ -154,7 +154,7 @@ const router = createRouter({
 
 // Navigation Guard (Satpam Router)
 router.beforeEach(async (to, from, next) => {
-    const defaultTitle = import.meta.env.VITE_APP_NAME || 'SIKT';
+    const defaultTitle = import.meta.env.VITE_APP_NAME || 'Sistem Informasi Kampus Terpadu';
     document.title = to.meta.title ? `${to.meta.title} | ${defaultTitle}` : defaultTitle;
     const authStore = useAuthStore();
     const isLoggedIn = authStore.isLoggedIn;

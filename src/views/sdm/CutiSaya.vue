@@ -1,25 +1,26 @@
 <script setup>
 import { useCutiStore } from '@/stores/cuti';
+import { useLookupStore } from '@/stores/lookup';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
 const store = useCutiStore();
+const lookupStore = useLookupStore();
 // Ambil myQuota dari store
 const { myLeaveList, isLoading, myQuota } = storeToRefs(store);
+const { kategoriCuti } = storeToRefs(lookupStore);
 
 const dialog = ref(false);
 const data = ref({});
 const submitted = ref(false);
 
-// Opsi untuk dropdown Tipe Cuti
-const tipeCutiOptions = ref(['Paid', 'Unpaid']);
-
 onMounted(() => {
     store.fetchMyLeave();
     // Ambil kuota untuk tahun ini
     store.fetchMyQuota(new Date().getFullYear());
+    lookupStore.fetchKategoriCuti();
 });
 
 const jumlahHariCuti = computed(() => {
@@ -43,17 +44,15 @@ function formatDate(date) {
 }
 
 function openNew() {
-    data.value = {
-        tipe_cuti: 'Paid' // Set 'Paid' sebagai default
-    };
+    data.value = {};
     submitted.value = false;
     dialog.value = true;
 }
 
 async function saveData() {
     submitted.value = true;
-    // Tambahkan validasi untuk tipe_cuti
-    if (!data.value.tanggal_mulai || !data.value.tanggal_selesai || !data.value.alasan?.trim() || !data.value.tipe_cuti) {
+    // PERBAIKAN: Validasi 'kategori'
+    if (!data.value.tanggal_mulai || !data.value.tanggal_selesai || !data.value.alasan?.trim() || !data.value.kategori) {
         toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Semua field wajib diisi', life: 3000 });
         return;
     }
@@ -64,11 +63,11 @@ async function saveData() {
             jumlah_hari: jumlahHariCuti.value,
             tanggal_mulai: formatDate(data.value.tanggal_mulai),
             tanggal_selesai: formatDate(data.value.tanggal_selesai),
-            tipe_cuti: data.value.tipe_cuti // Tambahkan tipe_cuti ke payload
+            kategori: data.value.kategori // PERBAIKAN: Kirim 'kategori'
         };
 
         await store.ajukanCuti(payload);
-        await store.fetchMyQuota(new Date().getFullYear()); // Refresh data kuota setelah submit
+        await store.fetchMyQuota(new Date().getFullYear());
 
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pengajuan cuti berhasil dikirim', life: 3000 });
         dialog.value = false;
@@ -130,7 +129,6 @@ function getSeverity(status) {
             </div>
         </div>
     </div>
-
     <div class="card">
         <Toolbar class="mb-6">
             <template #start>
@@ -142,7 +140,10 @@ function getSeverity(status) {
             <template #header><h4 class="m-0">Riwayat Pengajuan Cuti Saya</h4></template>
             <Column field="tanggal_mulai" header="Tanggal Mulai" sortable></Column>
             <Column field="tanggal_selesai" header="Tanggal Selesai" sortable></Column>
+
+            <Column field="kategori" header="Kategori" sortable></Column>
             <Column field="tipe_cuti" header="Tipe" sortable></Column>
+
             <Column field="jumlah_hari" header="Jumlah Hari"></Column>
             <Column field="alasan" header="Alasan"></Column>
             <Column field="status" header="Status" sortable>
@@ -170,10 +171,12 @@ function getSeverity(status) {
                 <label class="block font-bold mb-3">Total Hari Cuti</label>
                 <InputNumber v-model="jumlahHariCuti" fluid disabled />
             </div>
+
             <div>
-                <label class="block font-bold mb-3">Tipe Cuti *</label>
-                <Dropdown v-model="data.tipe_cuti" :options="tipeCutiOptions" placeholder="Pilih Tipe Cuti" :invalid="submitted && !data.tipe_cuti" fluid />
+                <label class="block font-bold mb-3">Kategori Cuti *</label>
+                <Dropdown v-model="data.kategori" :options="kategoriCuti" placeholder="Pilih Kategori Cuti" :invalid="submitted && !data.kategori" fluid />
             </div>
+
             <div>
                 <label class="block font-bold mb-3">Alasan *</label>
                 <Textarea v-model.trim="data.alasan" rows="3" fluid :invalid="submitted && !data.alasan" />
