@@ -128,6 +128,18 @@ const router = createRouter({
                     name: 'persetujuan-cuti',
                     component: () => import('@/views/sdm/PersetujuanCuti.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Persetujuan Cuti' }
+                },
+                {
+                    path: '/sdm/ijin-saya',
+                    name: 'ijin-saya',
+                    component: () => import('@/views/sdm/IjinSaya.vue'),
+                    meta: { requiresAuth: true, title: 'Manajemen Ijin' }
+                },
+                {
+                    path: '/sdm/persetujuan-ijin',
+                    name: 'persetujuan-ijin',
+                    component: () => import('@/views/sdm/PersetujuanIjin.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Persetujuan Ijin' }
                 }
             ]
         },
