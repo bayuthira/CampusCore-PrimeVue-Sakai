@@ -1,4 +1,5 @@
 <script setup>
+import { useDokumenStore } from '@/stores/dokumen';
 import { useIjinStore } from '@/stores/ijin';
 import { usePegawaiStore } from '@/stores/pegawai';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -19,6 +20,12 @@ const detailDialog = ref(false); // Dialog Info
 const data = ref({});
 const selectedIjin = ref(null);
 const action = ref('');
+
+const dokumenStore = useDokumenStore();
+const { list: dokumenList, isLoading: isDokumenLoading } = storeToRefs(dokumenStore);
+
+const dokumenListDialog = ref(false);
+const isBuktiLoading = ref(false);
 
 const calendarEvents = computed(() => {
     return allIjinList.value
@@ -105,6 +112,30 @@ async function saveAction() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memproses aksi', life: 4000 });
     }
 }
+
+async function openDokumenDialog(ijinData) {
+    try {
+        // Panggil store untuk mengambil daftar file terkait pengajuan ijin ini
+        await dokumenStore.fetchList('pengajuan-ijin', ijinData.id);
+        dokumenListDialog.value = true;
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat dokumen.', life: 3000 });
+    }
+}
+
+async function viewDokumen(path) {
+    if (!path) return;
+    isBuktiLoading.value = true;
+    try {
+        const blob = await dokumenStore.viewFile(path);
+        const fileURL = URL.createObjectURL(blob);
+        window.open(fileURL, '_blank');
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+    } finally {
+        isBuktiLoading.value = false;
+    }
+}
 </script>
 
 <template>
@@ -136,10 +167,12 @@ async function saveAction() {
                     <Column field="catatan_approval" header="Catatan Admin"></Column>
                     <Column header="Aksi">
                         <template #body="slotProps">
-                            <div v-if="slotProps.data.status === 'Diajukan'">
-                                <Button icon="pi pi-check" severity="success" text rounded @click="openActionDialog(slotProps.data, 'Setujui')" class="mr-2" vG-tooltip.top="'Setujui'" />
+                            <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data)" v-tooltip.top="'Lihat Dokumen Pendukung'" class="mr-2" />
+
+                            <template v-if="slotProps.data.status === 'Diajukan'">
+                                <Button icon="pi pi-check" severity="success" text rounded @click="openActionDialog(slotProps.data, 'Setujui')" class="mr-2" v-tooltip.top="'Setujui'" />
                                 <Button icon="pi pi-times" severity="danger" text rounded @click="openActionDialog(slotProps.data, 'Tolak')" v-tooltip.top="'Tolak'" />
-                            </div>
+                            </template>
                         </template>
                     </Column>
                 </DataTable>
@@ -180,6 +213,10 @@ async function saveAction() {
                 <span class="font-bold block">Catatan Admin:</span>
                 <p class="m-0">{{ selectedIjin.catatan_approval }}</p>
             </div>
+            <div>
+                <span class="font-bold block">Dokumen Pendukung:</span>
+                <Button label="Lihat Dokumen" icon="pi pi-paperclip" @click="openDokumenDialog(selectedIjin)" class="p-button-text p-button-info p-0" />
+            </div>
         </div>
         <template #footer>
             <div class="flex justify-end w-full">
@@ -189,6 +226,21 @@ async function saveAction() {
                     <Button label="Setujui" icon="pi pi-check" severity="success" @click="openActionDialog(selectedIjin, 'Setujui')" />
                 </div>
             </div>
+        </template>
+    </Dialog>
+
+    <Dialog v-model:visible="dokumenListDialog" :style="{ width: '50vw' }" header="Dokumen Pendukung" :modal="true">
+        <DataTable :value="dokumenList" :loading="isDokumenLoading" responsiveLayout="scroll">
+            <Column field="nama_file_asli" header="Nama File" sortable></Column>
+            <Column field="kategori" header="Kategori" sortable></Column>
+            <Column header="Aksi">
+                <template #body="slotProps">
+                    <Button icon="pi pi-eye" text rounded severity="info" @click="viewDokumen(slotProps.data.path_file)" :loading="isBuktiLoading" v-tooltip.top="'Lihat Dokumen'" />
+                </template>
+            </Column>
+        </DataTable>
+        <template #footer>
+            <Button label="Tutup" icon="pi pi-times" @click="dokumenListDialog = false" class="p-button-text" />
         </template>
     </Dialog>
 </template>
