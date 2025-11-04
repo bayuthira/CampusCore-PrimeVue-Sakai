@@ -106,7 +106,17 @@ const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
 const kategoriSertifikatOptions = ref(['Pelatihan', 'BIMTEK', 'Seminar', 'Workshop', 'Rekognisi Dosen']);
 const tingkatSertifikatOptions = ref(['Lokal', 'Nasional', 'Internasional']);
 const jabatanAkademikOptions = ref(['Asisten Ahli', 'Lektor', 'Lektor Kepala', 'Guru Besar']);
-const pangkatGolonganOptions = ref(['III/a', 'III/b', 'III/c', 'III/d', 'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e']);
+const pangkatGolonganOptions = ref([
+    'Penata Muda / III.a',
+    'Penata Muda Tk.I / III.b',
+    'Penata / III.c',
+    'Penata Tk. I / III.d',
+    'Pembina / IV.a',
+    'Pembina Tk. I / IV.b',
+    'Pembina Utama Muda / IV.c',
+    'Pembina Utama Madya / IV.d',
+    'Pembina Utama / IV.e'
+]);
 
 // const kategoriDokumenOptions = ref(['FotoProfil', 'KTP', 'KK', 'Ijazah', 'Transkrip', 'SK', 'Sertifikat', 'Lainnya']);
 const computedKategoriOptions = computed(() => {
