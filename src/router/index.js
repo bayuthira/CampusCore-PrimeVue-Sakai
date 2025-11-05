@@ -140,6 +140,12 @@ const router = createRouter({
                     name: 'persetujuan-ijin',
                     component: () => import('@/views/sdm/PersetujuanIjin.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Persetujuan Ijin' }
+                },
+                {
+                    path: '/sdm/unit-kerja',
+                    name: 'manajemen-unit-kerja',
+                    component: () => import('@/views/sdm/UnitKerja.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
                 }
             ]
         },
