@@ -5,9 +5,11 @@ import { useDokumenStore } from '@/stores/dokumen';
 import { useKarirDosenStore } from '@/stores/karirDosen';
 import { usePegawaiStore } from '@/stores/pegawai';
 import { usePendidikanStore } from '@/stores/pendidikan';
+import { usePenempatanStore } from '@/stores/penempatan';
 import { useProdiStore } from '@/stores/prodi';
 import { useRiwayatSkStore } from '@/stores/riwayatSk';
 import { useSertifikatStore } from '@/stores/sertifikat';
+import { useUnitKerjaStore } from '@/stores/unitKerja';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
@@ -28,11 +30,16 @@ const pendidikanStore = usePendidikanStore();
 const dokumenStore = useDokumenStore();
 const sertifikatStore = useSertifikatStore();
 const karirDosenStore = useKarirDosenStore();
+const penempatanStore = usePenempatanStore();
+const unitKerjaStore = useUnitKerjaStore();
+
 const { list: pendidikanList, isLoading: isPendidikanLoading } = storeToRefs(pendidikanStore);
 const { list: riwayatSkList, isLoading: isRiwayatSkLoading } = storeToRefs(riwayatSkStore);
 const { list: dokumenList, isLoading: isDokumenLoading } = storeToRefs(dokumenStore);
 const { list: sertifikatList, isLoading: isSertifikatLoading } = storeToRefs(sertifikatStore);
 const { jadList, serdosList, isLoading: isKarirDosenLoading } = storeToRefs(karirDosenStore);
+const { list: penempatanList, isLoading: isPenempatanLoading } = storeToRefs(penempatanStore); // <-- 3. AMBIL DATA BARU
+const { list: unitKerjaList } = storeToRefs(unitKerjaStore); // <-- 3. AMBIL DATA BARU
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
@@ -95,6 +102,13 @@ const serdosData = ref({});
 const serdosSubmitted = ref(false);
 const isSerdosNew = computed(() => !serdosData.value.id);
 
+const penempatanListDialog = ref(false);
+const penempatanFormDialog = ref(false);
+const deletePenempatanDialog = ref(false);
+const penempatanData = ref({});
+const penempatanSubmitted = ref(false);
+const isPenempatanNew = computed(() => !penempatanData.value.id);
+
 // Opsi untuk dropdown
 const jenisKelaminOptions = ref([
     { label: 'Laki-laki', value: 'L' },
@@ -143,6 +157,7 @@ onMounted(() => {
     openSertifikatList;
     store.fetchAll();
     prodiStore.fetchProdi();
+    unitKerjaStore.fetchAll();
 });
 
 function formatDate(date) {
@@ -711,6 +726,80 @@ async function deleteSerdos() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
+
+async function openPenempatanList(pegawai) {
+    selectedPegawai.value = pegawai;
+    try {
+        await penempatanStore.fetchByPegawai(pegawai.id);
+        penempatanListDialog.value = true;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat penempatan.', life: 3000 });
+    }
+}
+
+function openNewPenempatan() {
+    penempatanData.value = { tanggal_mulai: new Date() };
+    penempatanSubmitted.value = false;
+    penempatanFormDialog.value = true;
+}
+
+function editPenempatan(data) {
+    penempatanData.value = {
+        ...data,
+        tanggal_mulai: new Date(data.tanggal_mulai)
+    };
+    penempatanSubmitted.value = false;
+    penempatanFormDialog.value = true;
+}
+
+function hidePenempatanDialog() {
+    penempatanFormDialog.value = false;
+    penempatanSubmitted.value = false;
+}
+
+async function savePenempatan() {
+    penempatanSubmitted.value = true;
+    if (!penempatanData.value.unit_kerja_id || !penempatanData.value.jabatan?.trim() || !penempatanData.value.nomor_sk?.trim() || !penempatanData.value.tanggal_mulai) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Semua field wajib diisi.', life: 3000 });
+        return;
+    }
+
+    try {
+        const payload = {
+            ...penempatanData.value,
+            tanggal_mulai: formatDate(penempatanData.value.tanggal_mulai)
+        };
+
+        if (isPenempatanNew.value) {
+            await penempatanStore.create(selectedPegawai.value.id, payload);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Penempatan baru ditambahkan', life: 3000 });
+        } else {
+            await penempatanStore.update(penempatanData.value.id, payload);
+            await penempatanStore.fetchByPegawai(selectedPegawai.value.id); // Refresh
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Penempatan diperbarui', life: 3000 });
+        }
+
+        penempatanFormDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data', life: 3000 });
+    }
+}
+
+function confirmDeletePenempatan(data) {
+    penempatanData.value = data;
+    deletePenempatanDialog.value = true;
+}
+
+async function deletePenempatan() {
+    try {
+        await penempatanStore.delete(penempatanData.value.id);
+        await penempatanStore.fetchByPegawai(selectedPegawai.value.id); // Refresh
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Riwayat penempatan dihapus', life: 3000 });
+        deletePenempatanDialog.value = false;
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -746,7 +835,6 @@ async function deleteSerdos() {
 
                 <Column field="nik" header="NIK" sortable></Column>
                 <Column field="nama_lengkap" header="Nama Lengkap" sortable></Column>
-                <Column field="jabatan" header="Jabatan" sortable></Column>
                 <Column field="status_pegawai" header="Status" sortable></Column>
                 <Column field="nomor_hp" header="No. HP"></Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
@@ -761,6 +849,7 @@ async function deleteSerdos() {
                             @click="openKarirDosenDialog(slotProps.data)"
                             v-tooltip.top="'Karir Dosen (JAD/SERDOS)'"
                         />
+                        <Button icon="pi pi-briefcase" outlined rounded severity="success" class="mr-2" @click="openPenempatanList(slotProps.data)" v-tooltip.top="'Riwayat Penempatan'" />
                         <Button icon="pi pi-book" outlined rounded severity="info" class="mr-2" @click="openPendidikanList(slotProps.data)" v-tooltip.top="'Riwayat Pendidikan'" />
                         <Button icon="pi pi-file-o" outlined rounded severity="secondary" class="mr-2" @click="openRiwayatSkList(slotProps.data)" v-tooltip.top="'Riwayat SK'" />
                         <Button icon="pi pi-id-card" outlined rounded severity="warning" class="mr-2" @click="openSertifikatList(slotProps.data)" v-tooltip.top="'Riwayat Sertifikat'" />
@@ -868,19 +957,6 @@ async function deleteSerdos() {
                             <label for="kategori_pegawai" class="block font-bold mb-3">Kategori Pegawai</label>
                             <Dropdown id="kategori_pegawai" v-model="data.kategori_pegawai" :options="kategoriPegawaiOptions" placeholder="Pilih Kategori" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label for="jabatan" class="block font-bold mb-3">Jabatan</label>
-                            <InputText id="jabatan" v-model.trim="data.jabatan" fluid />
-                        </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label for="unit_kerja" class="block font-bold mb-3">Unit Kerja</label>
-                            <InputText id="unit_kerja" v-model.trim="data.unit_kerja" fluid />
-                        </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label for="bagian" class="block font-bold mb-3">Bagian</label>
-                            <InputText id="bagian" v-model.trim="data.bagian" fluid />
-                        </div>
-
                         <template v-if="data.kategori_pegawai === 'Tenaga Pendidik'">
                             <div class="col-span-12 md:col-span-6">
                                 <label for="nidn" class="block font-bold mb-3">NIDN *</label>
@@ -1356,6 +1432,80 @@ async function deleteSerdos() {
             <template #footer>
                 <Button label="Tidak" icon="pi pi-times" text @click="deleteSerdosDialog = false" />
                 <Button label="Ya, Hapus" icon="pi pi-check" @click="deleteSerdos" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="penempatanListDialog" :style="{ width: '70vw' }" maximizable :header="`Riwayat Penempatan: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <Toolbar class="mb-4">
+                <template #start>
+                    <Button label="Tambah Penempatan" icon="pi pi-plus" severity="secondary" @click="openNewPenempatan" />
+                </template>
+            </Toolbar>
+            <DataTable :value="penempatanList" :loading="isPenempatanLoading">
+                <Column field="nama_unit_kerja" header="Unit Kerja" sortable></Column>
+                <Column field="jabatan" header="Jabatan" sortable></Column>
+                <Column field="nomor_sk" header="Nomor SK"></Column>
+                <Column field="tanggal_mulai" header="Tanggal Mulai" sortable></Column>
+                <Column field="tanggal_selesai" header="Tanggal Selesai" sortable>
+                    <template #body="slotProps">
+                        {{ slotProps.data.tanggal_selesai || 'Saat Ini' }}
+                    </template>
+                </Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <Button icon="pi pi-pencil" text rounded @click="editPenempatan(slotProps.data)" />
+                        <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeletePenempatan(slotProps.data)" />
+                    </template>
+                </Column>
+            </DataTable>
+        </Dialog>
+
+        <Dialog v-model:visible="penempatanFormDialog" :style="{ width: '450px' }" :header="isPenempatanNew ? 'Tambah Penempatan' : 'Edit Penempatan'" :modal="true">
+            <div class="flex flex-col gap-6">
+                <div>
+                    <label for="unit_kerja_id" class="block font-bold mb-3">Unit Kerja *</label>
+                    <Dropdown
+                        id="unit_kerja_id"
+                        v-model="penempatanData.unit_kerja_id"
+                        :options="unitKerjaList"
+                        optionLabel="nama_unit"
+                        optionValue="id"
+                        placeholder="Pilih Unit Kerja"
+                        :invalid="penempatanSubmitted && !penempatanData.unit_kerja_id"
+                        fluid
+                        filter
+                    />
+                </div>
+                <div>
+                    <label for="jabatan" class="block font-bold mb-3">Jabatan *</label>
+                    <InputText id="jabatan" v-model.trim="penempatanData.jabatan" required :invalid="penempatanSubmitted && !penempatanData.jabatan" fluid />
+                </div>
+                <div>
+                    <label for="nomor_sk_penempatan" class="block font-bold mb-3">Nomor SK *</label>
+                    <InputText id="nomor_sk_penempatan" v-model.trim="penempatanData.nomor_sk" required :invalid="penempatanSubmitted && !penempatanData.nomor_sk" fluid />
+                </div>
+                <div>
+                    <label for="tanggal_mulai_penempatan" class="block font-bold mb-3">Tanggal Mulai *</label>
+                    <Calendar id="tanggal_mulai_penempatan" v-model="penempatanData.tanggal_mulai" dateFormat="yy-mm-dd" required :invalid="penempatanSubmitted && !penempatanData.tanggal_mulai" />
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="hidePenempatanDialog" />
+                <Button label="Simpan" icon="pi pi-check" @click="savePenempatan" />
+            </template>
+        </Dialog>
+
+        <Dialog v-model:visible="deletePenempatanDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle !text-3xl" />
+                <span v-if="penempatanData">
+                    Apakah Anda yakin ingin menghapus penempatan di <b>{{ penempatanData.nama_unit_kerja }}</b
+                    >?
+                </span>
+            </div>
+            <template #footer>
+                <Button label="Tidak" icon="pi pi-times" text @click="deletePenempatanDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" @click="deletePenempatan" />
             </template>
         </Dialog>
     </div>
