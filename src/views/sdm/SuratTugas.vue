@@ -397,7 +397,7 @@ function generateSuratTugas(doc, data) {
                 <TabPanel header="Info Utama">
                     <div class="flex flex-col gap-6 mt-4">
                         <div>
-                            <label for="dasar_tugas" class="block font-bold mb-3">Dasar Tugas *</label>
+                            <label for="dasar_tugas" class="block font-bold mb-3">Tentang Tugas *</label>
                             <Textarea id="dasar_tugas" v-model.trim="data.dasar_tugas" rows="2" required :invalid="submitted && !data.dasar_tugas" fluid />
                         </div>
                         <div>
