@@ -145,7 +145,13 @@ const router = createRouter({
                     path: '/sdm/unit-kerja',
                     name: 'manajemen-unit-kerja',
                     component: () => import('@/views/sdm/UnitKerja.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Unit Kerja' }
+                },
+                {
+                    path: '/sdm/surat-tugas',
+                    name: 'manajemen-surat-tugas',
+                    component: () => import('@/views/sdm/SuratTugas.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Surat Tugas' }
                 }
             ]
         },
