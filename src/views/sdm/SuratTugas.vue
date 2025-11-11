@@ -2,6 +2,8 @@
 import { usePegawaiStore } from '@/stores/pegawai';
 import { useSuratTugasStore } from '@/stores/suratTugas';
 import { FilterMatchMode } from '@primevue/core/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
@@ -24,6 +26,7 @@ const dt = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
+const isPrinting = ref(false);
 
 const peranPenerimaOptions = ref(['Pelaksana Utama', 'Pengikut']);
 
@@ -40,7 +43,40 @@ onMounted(() => {
 function formatDate(date) {
     if (!date) return null;
     const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+
+    return [year, month, day].join('-');
+}
+
+function formatDateIndonesian(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    const dayName = days[date.getDay()];
+    const dayNum = date.getDate();
+    const monthName = months[date.getMonth()];
+    const year = date.getFullYear();
+
+    return `${dayName}, ${dayNum} ${monthName} ${year}`;
+}
+
+function formatDateIndonesianSimple(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    const dayNum = date.getDate();
+    const monthName = months[date.getMonth()];
+    const year = date.getFullYear();
+
+    return `${dayNum} ${monthName} ${year}`;
 }
 
 // --- CRUD Functions ---
@@ -148,6 +184,162 @@ function addPenerimaTugas() {
 function removePenerimaTugas(index) {
     data.value.penerima_tugas.splice(index, 1);
 }
+
+async function handlePrint(data) {
+    isPrinting.value = true;
+    try {
+        // 1. Ambil data detail (termasuk daftar penerima)
+        const detail = await store.fetchById(data.id);
+
+        // 2. Buat dokumen PDF baru dengan ukuran F4 (210mm x 330mm)
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: [210, 330]
+        });
+
+        // 3. Tentukan apakah ini SPPD atau Surat Tugas biasa
+        const isSPPD = !!detail.nomor_sppd;
+
+        if (isSPPD) {
+            // generateSPPD(doc, detail); // <- Sangat kompleks
+            toast.add({ severity: 'info', summary: 'Info', detail: 'Pratinjau SPPD belum didukung. Silakan hubungi admin.', life: 4000 });
+        } else {
+            // 4. Panggil generator Surat Tugas
+            generateSuratTugas(doc, detail);
+            // 5. Tampilkan PDF di tab baru dengan cara yang lebih kompatibel
+            // Pastikan nama file aman
+            const filename = detail?.nomor_surat ? `${String(detail.nomor_surat).replace(/\//g, '_')}.pdf` : 'surat.pdf';
+
+            // Gunakan blob URL untuk membuka di tab baru (lebih andal daripada opsi kedua argumen pada output)
+            try {
+                const blobUrl = doc.output('bloburl');
+                window.open(blobUrl, '_blank');
+            } catch (err) {
+                // Fallback: simpan file langsung
+                doc.save(filename);
+            }
+        }
+    } catch (error) {
+        console.error('PDF Error:', error);
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal membuat dokumen PDF.', life: 3000 });
+    } finally {
+        isPrinting.value = false;
+    }
+}
+
+// 4. Tambahkan Fungsi Generator Surat Tugas
+function generateSuratTugas(doc, data) {
+    // Set default font ke Arial
+    doc.setFont('arial');
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const center = pageWidth / 2;
+    const marginTop = 60; // Margin atas 6cm = 60mm
+    let Y = marginTop; // Posisi Y vertikal mulai dari margin atas
+
+    // JUDUL
+    doc.setFontSize(11);
+    doc.setFont('arial', 'bold');
+    doc.text('SURAT TUGAS', center, Y, { align: 'center' });
+    // Tambah garis underline (dekat dengan text)
+    const textWidth = doc.getTextWidth('SURAT TUGAS');
+    doc.line(center - textWidth / 2, Y + 0.8, center + textWidth / 2, Y + 0.8);
+    Y += 7;
+    doc.setFontSize(11);
+    doc.setFont('arial', 'normal');
+    doc.text('Nomor : ' + data.nomor_surat, center, Y, { align: 'center' });
+    Y += 15;
+
+    // PENUGAS
+    doc.text('Ketua,', center, Y, { align: 'center' });
+    Y += 5;
+    doc.text('Sekolah Tinggi Ilmu Kesehatan Respati', center, Y, { align: 'center' });
+    Y += 15;
+    doc.text('Tentang,', center, Y, { align: 'center' });
+    Y += 5;
+    doc.text(data.dasar_tugas, center, Y, { align: 'center' });
+    Y += 10;
+    doc.setFont('arial', 'bold');
+    doc.text('Menugaskan Kepada:', 20, Y);
+    Y += 3;
+
+    // TABEL PENERIMA TUGAS
+    const tableHead = [['No', 'Nama', 'Jabatan', 'Keterangan Tugas']];
+    const tableBody = data.daftar_penerima.map((p, index) => [
+        index + 1,
+        p.nama_lengkap || '-',
+        p.jabatan || '-',
+        p.peran || '-' // Kita gunakan 'peran' sebagai 'Keterangan Tugas'
+    ]);
+
+    autoTable(doc, {
+        head: tableHead,
+        body: tableBody,
+        startY: Y,
+        theme: 'grid',
+        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+
+        // TAMBAHKAN BLOK 'didDrawPage' INI
+        didDrawPage: function (data) {
+            Y = data.cursor.y + 10; // Dapatkan posisi Y setelah tabel selesai
+        }
+    });
+
+    // DETAIL TUGAS
+    doc.text('Waktu Pelaksanaan pada :', 20, Y);
+    Y += 7;
+    doc.setFont('arial', 'bold');
+    //   const tugasText = data.tugas || '';
+    //   const tugasLines = doc.splitTextToSize(tugasText, pageWidth - 40);
+    //  doc.text(tugasLines, 20, Y);
+    //  Y += tugasLines.length * 7 + 7; // perkiraan tinggi baris
+
+    // WAKTU PELAKSANAAN
+    doc.setFont('arial', 'normal');
+    doc.text(`Hari/Tanggal`, 20, Y);
+    //doc.text(`: ${formatDateIndonesian(data.tanggal_mulai) || '-'} s/d ${formatDateIndonesian(data.tanggal_selesai) || '-'}`, 60, Y);
+    doc.text(`: ${formatDateIndonesian(data.tanggal_mulai) || '-'}`, 60, Y);
+    Y += 7;
+    doc.text(`Tempat`, 20, Y);
+    doc.text(': ' + data.tempat_tugas || '-', 60, Y);
+    Y += 15;
+
+    // TANDA TANGAN
+    const ttdX = pageWidth - 80;
+    doc.text('Ditetapkan di: Singaparna-Tasikmalaya', ttdX, Y);
+    Y += 7;
+    // Hitung tanggal ditetapkan = tanggal_mulai - 1 hari
+    const tanggalMulaiDate = new Date(data.tanggal_mulai);
+    const tanggalDitetapkan = new Date(tanggalMulaiDate);
+    tanggalDitetapkan.setDate(tanggalDitetapkan.getDate() - 1);
+    const ditetapkanFormatted = formatDateIndonesianSimple(tanggalDitetapkan.toISOString().split('T')[0]);
+    doc.text(`Pada Tanggal: ${ditetapkanFormatted}`, ttdX, Y);
+    Y += 15;
+    doc.text('SEKOLAH TINGGI ILMU KESEHATAN RESPATI', center, Y, { align: 'center' });
+    Y += 7;
+    doc.text(data.jabatan_penandatangan || '-', center, Y, { align: 'center' });
+    Y += 25; // Jarak untuk TTD
+    doc.setFont('arial', 'bold');
+    doc.text(data.nama_penandatangan || '-', center, Y, { align: 'center' });
+    // Tambah garis di bawah nama (dekat dengan text)
+    const namaWidth = doc.getTextWidth(data.nama_penandatangan || '-');
+    doc.line(center - namaWidth / 2, Y + 0.8, center + namaWidth / 2, Y + 0.8);
+    Y += 4.5;
+    doc.text(`NIK: ${data.nip_penandatangan || '-'}`, center, Y, { align: 'center' });
+    Y += 15;
+
+    // TEMBUSAN
+    doc.setFont('arial', 'normal');
+    if (data.tembusan && data.tembusan.length > 0) {
+        doc.text('Tembusan disampaikan Kepada Yth:', 20, Y);
+        Y += 7;
+        data.tembusan.forEach((item, index) => {
+            doc.text(`${index + 1}. ${item}`, 25, Y);
+            Y += 5;
+        });
+    }
+}
 </script>
 
 <template>
@@ -192,6 +384,7 @@ function removePenerimaTugas(index) {
                 <Column field="tanggal_selesai" header="Tanggal Selesai" sortable></Column>
                 <Column :exportable="false" style="min-width: 12rem" header="Aksi">
                     <template #body="slotProps">
+                        <Button icon="pi pi-print" outlined rounded severity="info" class="mr-2" @click="handlePrint(slotProps.data)" v-tooltip.top="'Cetak Surat'" :loading="isPrinting" />
                         <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" v-tooltip.top="'Edit Surat'" />
                         <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" v-tooltip.top="'Hapus Surat'" />
                     </template>
