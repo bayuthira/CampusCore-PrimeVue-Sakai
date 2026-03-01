@@ -31,6 +31,23 @@ const fullMenu = [
             // { label: 'Dashboard BAAK', icon: 'pi pi-fw pi-chart-pie', to: '/dashboard-baak', roles: ['STAF_AKADEMIK', 'SUPER_ADMIN'] }
         ]
     },
+        {
+        label: 'Akademik',
+        items: [
+            { 
+                label: 'KRS Mahasiswa', 
+                icon: 'pi pi-fw pi-file-edit', 
+                to: '/akademik/krs-mahasiswa',
+                roles: ['MAHASISWA'] // Hanya untuk Mahasiswa
+            },
+            { 
+                label: 'Persetujuan KRS', 
+                icon: 'pi pi-fw pi-check-square', 
+                to: '/akademik/persetujuan-krs',
+                roles: ['DOSEN', 'SUPER_ADMIN'] // Untuk Dosen PA dan Admin
+            }
+        ]
+    },
     {
         label: 'Master Data',
         roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'KAPRODI'],
@@ -38,7 +55,8 @@ const fullMenu = [
             { label: 'Program Studi', icon: 'pi pi-fw pi-book', to: '/prodi', roles: ['SUPER_ADMIN'] },
             { label: 'Dosen', icon: 'pi pi-fw pi-users', to: '/dosen', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] },
             { label: 'Mahasiswa', icon: 'pi pi-fw pi-user-edit', to: '/mahasiswa', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] },
-            { label: 'Mata Kuliah', icon: 'pi pi-fw pi-th-large', to: '/matakuliah', roles: ['SUPER_ADMIN', 'KAPRODI'] }
+            { label: 'Mata Kuliah', icon: 'pi pi-fw pi-th-large', to: '/matakuliah', roles: ['SUPER_ADMIN', 'KAPRODI'] },
+            { label: 'Kurikulum', icon: 'pi pi-fw pi-book', to: '/akademik/kurikulum', roles: ['SUPER_ADMIN', 'KAPRODI'] }
         ]
     },
     {
@@ -83,9 +101,10 @@ const fullMenu = [
     },
     {
         label: 'Layanan Pegawai',
+        roles: ['KARYAWAN'],
         items: [
-            { label: 'Pengajuan Cuti', icon: 'pi pi-fw pi-calendar-times', to: '/sdm/cuti-saya' },
-            { label: 'Pengajuan Ijin', icon: 'pi pi-fw pi-calendar-minus', to: '/sdm/ijin-saya' }
+            { label: 'Pengajuan Cuti', icon: 'pi pi-fw pi-calendar-times', roles: ['KARYAWAN'], to: '/sdm/cuti-saya' },
+            { label: 'Pengajuan Ijin', icon: 'pi pi-fw pi-calendar-minus', roles: ['KARYAWAN'], to: '/sdm/ijin-saya' }
         ]
     }
 ];

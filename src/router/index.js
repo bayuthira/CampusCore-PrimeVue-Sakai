@@ -82,6 +82,24 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN'], title: 'Tahun Akademik' }
                 },
                 {
+                    path: '/akademik/kurikulum',
+                    name: 'kurikulum',
+                    component: () => import('@/views/akademik/Kurikulum.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'KAPRODI'], title: 'Kurikulum' }
+                },
+                {
+                    path: '/akademik/krs-mahasiswa',
+                    name: 'krs-mahasiswa',
+                    component: () => import('@/views/akademik/KrsMahasiswa.vue'),
+                    meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'KRS Mahasiswa' }
+                },
+                {
+                    path: '/akademik/persetujuan-krs',
+                    name: 'persetujuan-krs',
+                    component: () => import('@/views/akademik/PersetujuanKrs.vue'),
+                    meta: { requiresAuth: true, roles: ['DOSEN', 'SUPER_ADMIN'], title: 'Persetujuan KRS' }
+                },
+                {
                     path: '/fasilitas/jadwal-ruangan',
                     name: 'jadwal-ruangan',
                     component: () => import('@/views/fasilitas/JadwalRuangan.vue'),
@@ -121,7 +139,7 @@ const router = createRouter({
                     path: '/sdm/cuti-saya',
                     name: 'cuti-saya',
                     component: () => import('@/views/sdm/CutiSaya.vue'),
-                    meta: { requiresAuth: true, title: 'Manajemen Cuti' }
+                    meta: { requiresAuth: true, title: 'Manajemen Cuti', roles: ['KARYAWAN'] }
                 },
                 {
                     path: '/sdm/persetujuan-cuti',
@@ -133,7 +151,7 @@ const router = createRouter({
                     path: '/sdm/ijin-saya',
                     name: 'ijin-saya',
                     component: () => import('@/views/sdm/IjinSaya.vue'),
-                    meta: { requiresAuth: true, title: 'Manajemen Ijin' }
+                    meta: { requiresAuth: true, title: 'Manajemen Ijin', roles: ['KARYAWAN'] }
                 },
                 {
                     path: '/sdm/persetujuan-ijin',
