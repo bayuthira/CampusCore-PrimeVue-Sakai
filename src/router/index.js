@@ -166,6 +166,12 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Rekap Absensi' }
                 },
                 {
+                    path: '/sdm/laporan-absensi',
+                    name: 'laporan-absensi',
+                    component: () => import('@/views/sdm/LaporanAbsensi.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Laporan Absensi' }
+                },
+                {
                     path: '/sdm/unit-kerja',
                     name: 'manajemen-unit-kerja',
                     component: () => import('@/views/sdm/UnitKerja.vue'),
