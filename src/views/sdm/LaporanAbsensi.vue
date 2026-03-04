@@ -161,47 +161,12 @@ function getMapUrl(lat, lng) {
     return `https://www.google.com/maps?q=${lat},${lng}&output=embed`;
 }
 
-// Helper untuk format menit ke Jam:Menit
+// Helper untuk format menit ke Jam:Menit di Dashboard Summary
 function formatMinutes(minutes) {
     if (!minutes || minutes === 0) return '0 menit';
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return h > 0 ? `${h} jam ${m} menit` : `${m} menit`;
-}
-
-/**
- * Memformat string keterangan agar lebih rapi menggunakan data numerik jika tersedia.
- * Memastikan status "Alpa" atau "Keterangan Khusus" tidak hilang.
- */
-function getFullKeterangan(data) {
-    let parts = [];
-
-    // 1. Cek Keterlambatan (Numeric - Biasa ada di laporan bulanan)
-    if (data.terlambat_menit > 0) {
-        let t = `Terlambat: ${formatMinutes(data.terlambat_menit)}`;
-        if (data.terlambat_toleransi_menit > 0) {
-            t += ` (Toleransi: ${formatMinutes(data.terlambat_toleransi_menit)})`;
-        }
-        parts.push(t);
-    }
-
-    // 2. Cek Lembur (Numeric)
-    if (data.lembur_menit > 0) {
-        parts.push(`Lembur: ${formatMinutes(data.lembur_menit)}`);
-    }
-
-    // 3. Jika ada hasil dari kalkulasi numerik di atas, gabungkan dan kembalikan
-    if (parts.length > 0) return parts.join(', ');
-
-    // 4. Jika tidak ada data numerik (Laporan Harian), gunakan keterangan dari backend
-    if (data.keterangan) return data.keterangan;
-
-    // 5. Fallback jika data absensi kosong (Alpa)
-    if (!data.clock_in && !data.clock_out) return 'Tidak Absen (Alpa)';
-    if (!data.clock_in) return 'Tidak Absen Masuk';
-    if (!data.clock_out) return 'Tidak Absen Pulang';
-
-    return 'Hadir';
 }
 
 </script>
@@ -332,9 +297,8 @@ function getFullKeterangan(data) {
             <Column field="keterangan" header="Status & Analisis">
                 <template #body="slotProps">
                     <div class="flex flex-col gap-1">
-                        <!-- Menggunakan getFullKeterangan untuk nilai dan severity warna -->
-                        <Tag :value="getFullKeterangan(slotProps.data)"
-                            :severity="getStatusSeverity(getFullKeterangan(slotProps.data))" class="w-fit" />
+                        <Tag :value="slotProps.data.keterangan || 'Hadir'"
+                            :severity="getStatusSeverity(slotProps.data.keterangan)" class="w-fit" />
                     </div>
                 </template>
             </Column>
