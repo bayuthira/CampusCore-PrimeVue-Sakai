@@ -31,18 +31,18 @@ const fullMenu = [
             // { label: 'Dashboard BAAK', icon: 'pi pi-fw pi-chart-pie', to: '/dashboard-baak', roles: ['STAF_AKADEMIK', 'SUPER_ADMIN'] }
         ]
     },
-        {
+    {
         label: 'Akademik',
         items: [
-            { 
-                label: 'KRS Mahasiswa', 
-                icon: 'pi pi-fw pi-file-edit', 
+            {
+                label: 'KRS Mahasiswa',
+                icon: 'pi pi-fw pi-file-edit',
                 to: '/akademik/krs-mahasiswa',
                 roles: ['MAHASISWA'] // Hanya untuk Mahasiswa
             },
-            { 
-                label: 'Persetujuan KRS', 
-                icon: 'pi pi-fw pi-check-square', 
+            {
+                label: 'Persetujuan KRS',
+                icon: 'pi pi-fw pi-check-square',
                 to: '/akademik/persetujuan-krs',
                 roles: ['DOSEN', 'SUPER_ADMIN'] // Untuk Dosen PA dan Admin
             }
@@ -93,6 +93,7 @@ const fullMenu = [
         roles: ['SUPER_ADMIN', 'STAF_BASDM'],
         items: [
             { label: 'Manajemen Pegawai', icon: 'pi pi-fw pi-users', to: '/sdm/pegawai', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
+            { label: 'Rekap Absensi', icon: 'pi pi-fw pi-calendar', to: '/sdm/absensi', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Persetujuan Cuti', icon: 'pi pi-fw pi-check-square', to: '/sdm/persetujuan-cuti', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Persetujuan Ijin', icon: 'pi pi-fw pi-calendar-minus', to: '/sdm/persetujuan-ijin', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Unit Kerja', icon: 'pi pi-fw pi-sitemap', to: '/sdm/unit-kerja', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },

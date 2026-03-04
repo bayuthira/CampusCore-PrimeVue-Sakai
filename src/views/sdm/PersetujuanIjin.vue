@@ -34,16 +34,26 @@ const calendarEvents = computed(() => {
             const pegawai = pegawaiList.value.find((p) => p.id === ijin.pegawai_id);
             const nama = pegawai ? pegawai.nama_lengkap : '...';
 
-            // --- INI ADALAH LOGIKA YANG SAMA PERSIS DENGAN MODUL CUTI ---
-            const endDate = new Date(new Date(ijin.tanggal_selesai).setDate(new Date(ijin.tanggal_selesai).getDate() + 1));
+            // --- PERBAIKAN LOGIKA TANGGAL (Timezone Safe) ---
+            // Kita memecah string "YYYY-MM-DD" agar dikonversi ke Local Date, bukan UTC.
+            const [y, m, d] = ijin.tanggal_selesai.split('-').map(Number);
+            // Tambahkan 1 hari untuk 'end' date (eksklusif di FullCalendar)
+            const endDateObj = new Date(y, m - 1, d + 1);
+
+            // Format kembali ke string YYYY-MM-DD agar FullCalendar tidak bingung dengan jam
+            const endYear = endDateObj.getFullYear();
+            const endMonth = String(endDateObj.getMonth() + 1).padStart(2, '0');
+            const endDay = String(endDateObj.getDate()).padStart(2, '0');
+            const endDateStr = `${endYear}-${endMonth}-${endDay}`;
 
             return {
                 id: ijin.id,
                 title: `${nama} (${ijin.kategori}) - ${ijin.status}`,
                 start: ijin.tanggal_mulai, // "2025-11-03"
-                end: endDate, // Objek Date "2025-11-05"
+                end: endDateStr, // "2025-11-05"
                 backgroundColor: getCalendarColor(ijin.status),
                 borderColor: getCalendarColor(ijin.status),
+                allDay: true,
                 extendedProps: ijin
             };
         });
@@ -149,7 +159,9 @@ async function viewDokumen(path) {
         <div class="col-12">
             <div class="card">
                 <DataTable :value="allIjinList" :loading="isLoading" dataKey="id" :paginator="true" :rows="10">
-                    <template #header><h4 class="m-0">Daftar Pengajuan Ijin (Semua Status)</h4></template>
+                    <template #header>
+                        <h4 class="m-0">Daftar Pengajuan Ijin (Semua Status)</h4>
+                    </template>
                     <Column field="pegawai_id" header="Nama Pegawai" sortable>
                         <template #body="slotProps">
                             {{ getNamaPegawai(slotProps.data.pegawai_id) }}
@@ -161,17 +173,23 @@ async function viewDokumen(path) {
                     <Column field="alasan" header="Alasan"></Column>
                     <Column field="status" header="Status" sortable>
                         <template #body="slotProps">
-                            <Tag :value="slotProps.data.status" :severity="slotProps.data.status === 'Disetujui' ? 'success' : slotProps.data.status === 'Ditolak' ? 'danger' : 'info'" />
+                            <Tag :value="slotProps.data.status"
+                                :severity="slotProps.data.status === 'Disetujui' ? 'success' : slotProps.data.status === 'Ditolak' ? 'danger' : 'info'" />
                         </template>
                     </Column>
                     <Column field="catatan_approval" header="Catatan Admin"></Column>
                     <Column header="Aksi">
                         <template #body="slotProps">
-                            <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data)" v-tooltip.top="'Lihat Dokumen Pendukung'" class="mr-2" />
+                            <Button icon="pi pi-paperclip" text rounded severity="info"
+                                @click="openDokumenDialog(slotProps.data)" v-tooltip.top="'Lihat Dokumen Pendukung'"
+                                class="mr-2" />
 
                             <template v-if="slotProps.data.status === 'Diajukan'">
-                                <Button icon="pi pi-check" severity="success" text rounded @click="openActionDialog(slotProps.data, 'Setujui')" class="mr-2" v-tooltip.top="'Setujui'" />
-                                <Button icon="pi pi-times" severity="danger" text rounded @click="openActionDialog(slotProps.data, 'Tolak')" v-tooltip.top="'Tolak'" />
+                                <Button icon="pi pi-check" severity="success" text rounded
+                                    @click="openActionDialog(slotProps.data, 'Setujui')" class="mr-2"
+                                    v-tooltip.top="'Setujui'" />
+                                <Button icon="pi pi-times" severity="danger" text rounded
+                                    @click="openActionDialog(slotProps.data, 'Tolak')" v-tooltip.top="'Tolak'" />
                             </template>
                         </template>
                     </Column>
@@ -215,15 +233,18 @@ async function viewDokumen(path) {
             </div>
             <div>
                 <span class="font-bold block">Dokumen Pendukung:</span>
-                <Button label="Lihat Dokumen" icon="pi pi-paperclip" @click="openDokumenDialog(selectedIjin)" class="p-button-text p-button-info p-0" />
+                <Button label="Lihat Dokumen" icon="pi pi-paperclip" @click="openDokumenDialog(selectedIjin)"
+                    class="p-button-text p-button-info p-0" />
             </div>
         </div>
         <template #footer>
             <div class="flex justify-end w-full">
                 <Button label="Tutup" icon="pi pi-times" text @click="closeDetailDialog" />
                 <div v-if="selectedIjin && selectedIjin.status === 'Diajukan'" class="ml-2">
-                    <Button label="Tolak" icon="pi pi-times" severity="danger" class="mr-2" @click="openActionDialog(selectedIjin, 'Tolak')" />
-                    <Button label="Setujui" icon="pi pi-check" severity="success" @click="openActionDialog(selectedIjin, 'Setujui')" />
+                    <Button label="Tolak" icon="pi pi-times" severity="danger" class="mr-2"
+                        @click="openActionDialog(selectedIjin, 'Tolak')" />
+                    <Button label="Setujui" icon="pi pi-check" severity="success"
+                        @click="openActionDialog(selectedIjin, 'Setujui')" />
                 </div>
             </div>
         </template>
@@ -235,7 +256,8 @@ async function viewDokumen(path) {
             <Column field="kategori" header="Kategori" sortable></Column>
             <Column header="Aksi">
                 <template #body="slotProps">
-                    <Button icon="pi pi-eye" text rounded severity="info" @click="viewDokumen(slotProps.data.path_file)" :loading="isBuktiLoading" v-tooltip.top="'Lihat Dokumen'" />
+                    <Button icon="pi pi-eye" text rounded severity="info" @click="viewDokumen(slotProps.data.path_file)"
+                        :loading="isBuktiLoading" v-tooltip.top="'Lihat Dokumen'" />
                 </template>
             </Column>
         </DataTable>
@@ -250,6 +272,7 @@ async function viewDokumen(path) {
     background-color: var(--primary-color);
     border-color: var(--primary-color);
 }
+
 .fc .fc-daygrid-day.fc-day-today {
     background-color: var(--primary-100);
 }
