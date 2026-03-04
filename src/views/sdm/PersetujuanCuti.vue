@@ -90,7 +90,9 @@ async function saveAction() {
         dialog.value = false;
         store.fetchAllLeave(); // Refresh data
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memproses aksi', life: 4000 });
+        // Mengambil pesan error spesifik dari response backend jika tersedia
+        const errorMessage = error.response?.data?.error || 'Gagal memproses aksi';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 5000 });
     }
 }
 
