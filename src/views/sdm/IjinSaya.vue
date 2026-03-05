@@ -10,7 +10,7 @@ const toast = useToast();
 const store = useIjinStore();
 
 const { myIjinList, isLoading } = storeToRefs(store);
-const kategoriIjinOptions = ref(['Sakit', 'Urusan Keluarga', 'Lainnya']);
+const kategoriIjinOptions = ref(['Sakit', 'Urusan Keluarga', 'Dinas Luar', 'WFH', 'Lainnya']);
 
 const dialog = ref(false);
 const data = ref({});
@@ -164,7 +164,9 @@ function confirmDeleteDokumen(dokumen) {
         </Toolbar>
 
         <DataTable :value="myIjinList" :loading="isLoading" responsiveLayout="scroll">
-            <template #header><h4 class="m-0">Riwayat Pengajuan Ijin Saya</h4></template>
+            <template #header>
+                <h4 class="m-0">Riwayat Pengajuan Ijin Saya</h4>
+            </template>
             <Column field="tanggal_mulai" header="Tanggal Mulai" sortable></Column>
             <Column field="tanggal_selesai" header="Tanggal Selesai" sortable></Column>
             <Column field="kategori" header="Kategori" sortable></Column>
@@ -177,7 +179,9 @@ function confirmDeleteDokumen(dokumen) {
             <Column field="catatan_approval" header="Catatan Admin"></Column>
             <Column header="Dokumen">
                 <template #body="slotProps">
-                    <Button icon="pi pi-paperclip" text rounded severity="info" @click="openDokumenDialog(slotProps.data)" v-tooltip.top="'Upload Dokumen (cth: Surat Sakit)'" />
+                    <Button icon="pi pi-paperclip" text rounded severity="info"
+                        @click="openDokumenDialog(slotProps.data)"
+                        v-tooltip.top="'Upload Dokumen (cth: Surat Sakit)'" />
                 </template>
             </Column>
         </DataTable>
@@ -188,16 +192,19 @@ function confirmDeleteDokumen(dokumen) {
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block font-bold mb-3">Tanggal Mulai *</label>
-                    <Calendar v-model="data.tanggal_mulai" dateFormat="yy-mm-dd" :invalid="submitted && !data.tanggal_mulai" />
+                    <Calendar v-model="data.tanggal_mulai" dateFormat="yy-mm-dd"
+                        :invalid="submitted && !data.tanggal_mulai" />
                 </div>
                 <div>
                     <label class="block font-bold mb-3">Tanggal Selesai *</label>
-                    <Calendar v-model="data.tanggal_selesai" dateFormat="yy-mm-dd" :invalid="submitted && !data.tanggal_selesai" />
+                    <Calendar v-model="data.tanggal_selesai" dateFormat="yy-mm-dd"
+                        :invalid="submitted && !data.tanggal_selesai" />
                 </div>
             </div>
             <div>
                 <label class="block font-bold mb-3">Kategori Ijin *</label>
-                <Dropdown v-model="data.kategori" :options="kategoriIjinOptions" placeholder="Pilih Kategori Ijin" :invalid="submitted && !data.kategori" fluid />
+                <Dropdown v-model="data.kategori" :options="kategoriIjinOptions" placeholder="Pilih Kategori Ijin"
+                    :invalid="submitted && !data.kategori" fluid />
             </div>
             <div>
                 <label class="block font-bold mb-3">Alasan *</label>
@@ -210,13 +217,17 @@ function confirmDeleteDokumen(dokumen) {
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="dokumenListDialog" :style="{ width: '70vw' }" maximizable :header="`Manajemen Dokumen Ijin`" :modal="true">
+    <Dialog v-model:visible="dokumenListDialog" :style="{ width: '70vw' }" maximizable
+        :header="`Manajemen Dokumen Ijin`" :modal="true">
         <Toolbar class="mb-4">
             <template #start>
                 <div class="flex flex-wrap gap-2">
-                    <Dropdown v-model="uploadKategori" :options="kategoriIjinDokumenOptions" placeholder="Pilih Kategori Dokumen" class="w-full md:w-auto" />
-                    <FileUpload ref="uploadRef" mode="basic" name="dokumen" @select="onFileSelect" :auto="false" :customUpload="true" chooseLabel="Pilih File" accept="image/*,application/pdf" />
-                    <Button label="Upload" icon="pi pi-upload" @click="handleUploadDokumen" :disabled="!fileToUpload || isDokumenLoading" :loading="isDokumenLoading" />
+                    <Dropdown v-model="uploadKategori" :options="kategoriIjinDokumenOptions"
+                        placeholder="Pilih Kategori Dokumen" class="w-full md:w-auto" />
+                    <FileUpload ref="uploadRef" mode="basic" name="dokumen" @select="onFileSelect" :auto="false"
+                        :customUpload="true" chooseLabel="Pilih File" accept="image/*,application/pdf" />
+                    <Button label="Upload" icon="pi pi-upload" @click="handleUploadDokumen"
+                        :disabled="!fileToUpload || isDokumenLoading" :loading="isDokumenLoading" />
                 </div>
             </template>
         </Toolbar>
@@ -226,8 +237,10 @@ function confirmDeleteDokumen(dokumen) {
             <Column field="kategori" header="Kategori" sortable></Column>
             <Column header="Aksi">
                 <template #body="slotProps">
-                    <Button icon="pi pi-eye" text rounded severity="info" @click="viewDokumen(slotProps.data.path_file)" :loading="isBuktiLoading" v-tooltip.top="'Lihat Dokumen'" />
-                    <Button icon="pi pi-trash" text rounded severity="danger" @click="confirmDeleteDokumen(slotProps.data)" v-tooltip.top="'Hapus Dokumen'" />
+                    <Button icon="pi pi-eye" text rounded severity="info" @click="viewDokumen(slotProps.data.path_file)"
+                        :loading="isBuktiLoading" v-tooltip.top="'Lihat Dokumen'" />
+                    <Button icon="pi pi-trash" text rounded severity="danger"
+                        @click="confirmDeleteDokumen(slotProps.data)" v-tooltip.top="'Hapus Dokumen'" />
                 </template>
             </Column>
         </DataTable>
