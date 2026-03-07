@@ -97,7 +97,7 @@ const router = createRouter({
                     path: '/akademik/persetujuan-krs',
                     name: 'persetujuan-krs',
                     component: () => import('@/views/akademik/PersetujuanKrs.vue'),
-                    meta: { requiresAuth: true, roles: ['DOSEN', 'SUPER_ADMIN'], title: 'Persetujuan KRS' }
+                    meta: { requiresAuth: true, roles: ['DOSEN'], title: 'Persetujuan KRS' }
                 },
                 {
                     path: '/fasilitas/jadwal-ruangan',

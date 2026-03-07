@@ -1,16 +1,6 @@
 // src/stores/prodi.js
 import apiClient from '@/services/api';
 import { defineStore } from 'pinia';
-import { useAuthStore } from './auth';
-
-// Menambahkan token ke setiap request
-apiClient.interceptors.request.use((config) => {
-    const authStore = useAuthStore();
-    if (authStore.token) {
-        config.headers.Authorization = `Bearer ${authStore.token}`;
-    }
-    return config;
-});
 
 export const useProdiStore = defineStore('prodi', {
     state: () => ({
@@ -37,24 +27,26 @@ export const useProdiStore = defineStore('prodi', {
             this.error = null;
             try {
                 await apiClient.post('/prodi', prodiData);
-                await this.fetchProdi(); // Refresh data setelah berhasil
+                await this.fetchProdi();
             } catch (e) {
                 this.error = 'Gagal membuat prodi baru.';
-                console.error(e);
-                throw e; // Lemparkan error agar bisa ditangkap di komponen
+                throw e;
             } finally {
                 this.isLoading = false;
             }
         },
+        /**
+         * Update Prodi mendukung partial update.
+         * Payload hanya berisi field yang ingin diubah.
+         */
         async updateProdi(id, prodiData) {
             this.isLoading = true;
             this.error = null;
             try {
                 await apiClient.put(`/prodi/${id}`, prodiData);
-                await this.fetchProdi(); // Refresh data
+                await this.fetchProdi();
             } catch (e) {
                 this.error = 'Gagal memperbarui prodi.';
-                console.error(e);
                 throw e;
             } finally {
                 this.isLoading = false;
@@ -65,10 +57,9 @@ export const useProdiStore = defineStore('prodi', {
             this.error = null;
             try {
                 await apiClient.delete(`/prodi/${id}`);
-                await this.fetchProdi(); // Refresh data
+                await this.fetchProdi();
             } catch (e) {
                 this.error = 'Gagal menghapus prodi.';
-                console.error(e);
                 throw e;
             } finally {
                 this.isLoading = false;

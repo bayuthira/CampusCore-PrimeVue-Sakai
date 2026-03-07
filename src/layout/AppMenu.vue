@@ -33,6 +33,7 @@ const fullMenu = [
     },
     {
         label: 'Akademik',
+        roles: ['DOSEN', 'MAHASISWA'],
         items: [
             {
                 label: 'KRS Mahasiswa',
@@ -44,7 +45,7 @@ const fullMenu = [
                 label: 'Persetujuan KRS',
                 icon: 'pi pi-fw pi-check-square',
                 to: '/akademik/persetujuan-krs',
-                roles: ['DOSEN', 'SUPER_ADMIN'] // Untuk Dosen PA dan Admin
+                roles: ['DOSEN'] // Untuk Dosen PA dan Admin
             }
         ]
     },

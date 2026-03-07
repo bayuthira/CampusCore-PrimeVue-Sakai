@@ -34,9 +34,14 @@ onMounted(() => {
     mkStore.fetchMataKuliah();
 });
 
-// --- Master Kurikulum ---
 function openNew() {
-    data.value = { is_active: true, tahun_mulai: new Date().getFullYear() };
+    data.value = {
+        is_active: true,
+        tahun_mulai: new Date().getFullYear(),
+        sks_lulus: 144,
+        sks_wajib: 130,
+        sks_pilihan: 14
+    };
     submitted.value = false;
     dialog.value = true;
 }
@@ -53,10 +58,10 @@ async function saveData() {
     try {
         if (data.value.id) {
             await store.update(data.value.id, data.value);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Kurikulum diperbarui', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Kurikulum Diperbarui', life: 3000 });
         } else {
             await store.create(data.value);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Kurikulum dibuat', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Kurikulum Baru Berhasil Dibuat', life: 3000 });
         }
         dialog.value = false;
     } catch (e) {
@@ -73,7 +78,7 @@ async function deleteData() {
     try {
         await store.delete(data.value.id);
         deleteDialog.value = false;
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Kurikulum dihapus', life: 3000 });
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Kurikulum Dihapus', life: 3000 });
     } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
@@ -83,7 +88,6 @@ async function deleteData() {
 async function openMapping(row) {
     selectedKurikulum.value = row;
     mkToAdd.value = null;
-    // Ambil data terbaru baik relasi maupun master makul
     await Promise.all([
         store.fetchSubjects(row.id),
         mkStore.fetchMataKuliah()
@@ -96,7 +100,7 @@ async function handleAddMk() {
     try {
         await store.addSubject(selectedKurikulum.value.id, mkToAdd.value);
         mkToAdd.value = null;
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Mata kuliah ditambahkan ke kurikulum', life: 2000 });
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Mata kuliah ditambahkan', life: 2000 });
     } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menambahkan mata kuliah', life: 3000 });
     }
@@ -105,137 +109,197 @@ async function handleAddMk() {
 async function removeMk(mkId) {
     try {
         await store.removeSubject(selectedKurikulum.value.id, mkId);
-        toast.add({ severity: 'warn', summary: 'Dihapus', detail: 'Mata kuliah dikeluarkan dari kurikulum', life: 2000 });
+        toast.add({ severity: 'warn', summary: 'Dihapus', detail: 'Mata kuliah dikeluarkan', life: 2000 });
     } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus relasi', life: 3000 });
     }
 }
 
-// Filter MK yang belum ada di kurikulum saat ini dan sesuai Prodi
 const availableMkOptions = computed(() => {
     if (!selectedKurikulum.value) return [];
-    
-    // Ambil ID semua MK yang sudah terdaftar di kurikulum ini
     const existingIds = currentSubjects.value.map(s => s.id);
-    
     return allMkList.value.filter(mk => {
         const isNotMapped = !existingIds.includes(mk.id);
         const isSameProdi = mk.prodi_id === selectedKurikulum.value.prodi_id;
         return isNotMapped && isSameProdi;
     });
 });
-
 </script>
 
 <template>
-    <div class="card">
+    <div class="card shadow-sm border-0">
         <Toolbar class="mb-6">
             <template #start>
-                <Button label="Tambah Kurikulum" icon="pi pi-plus" severity="secondary" @click="openNew" />
+                <Button label="Tambah Kurikulum" icon="pi pi-plus" severity="primary" @click="openNew" />
             </template>
         </Toolbar>
 
-        <DataTable :value="list" :loading="isLoading" :filters="filters" paginator :rows="10">
+        <DataTable :value="list" :loading="isLoading" :filters="filters" paginator :rows="10" stripedRows
+            class="p-datatable-sm">
             <template #header>
                 <div class="flex justify-between items-center">
-                    <h4 class="m-0">Master Kurikulum</h4>
+                    <h4 class="m-0 font-bold text-gray-700">Master Kurikulum</h4>
                     <IconField>
                         <InputIcon><i class="pi pi-search" /></InputIcon>
-                        <InputText v-model="filters['global'].value" placeholder="Cari..." />
+                        <InputText v-model="filters['global'].value" placeholder="Cari kurikulum..." />
                     </IconField>
                 </div>
             </template>
             <Column field="nama" header="Nama Kurikulum" sortable></Column>
             <Column field="nama_prodi" header="Program Studi" sortable></Column>
             <Column field="tahun_mulai" header="Tahun" sortable></Column>
+            <Column field="sks_lulus" header="SKS Lulus" sortable></Column>
             <Column field="is_active" header="Status">
                 <template #body="slotProps">
-                    <Tag :value="slotProps.data.is_active ? 'Aktif' : 'Non-Aktif'" :severity="slotProps.data.is_active ? 'success' : 'danger'" />
+                    <Tag :value="slotProps.data.is_active ? 'Aktif' : 'Non-Aktif'"
+                        :severity="slotProps.data.is_active ? 'success' : 'danger'" />
                 </template>
             </Column>
-            <Column header="Aksi" :exportable="false" style="min-width: 12rem">
+            <Column header="Aksi" :exportable="false" style="min-width: 10rem">
                 <template #body="slotProps">
-                    <Button icon="pi pi-list" outlined rounded severity="info" class="mr-2" @click="openMapping(slotProps.data)" v-tooltip.top="'Kelola Mata Kuliah'" />
-                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)" />
-                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)" />
+                    <Button icon="pi pi-list" outlined rounded severity="info" class="mr-2"
+                        @click="openMapping(slotProps.data)" v-tooltip.top="'Kelola Mata Kuliah'" />
+                    <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editData(slotProps.data)"
+                        v-tooltip.top="'Ubah'" />
+                    <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)"
+                        v-tooltip.top="'Hapus'" />
                 </template>
             </Column>
         </DataTable>
     </div>
 
-    <!-- Dialog Edit/Tambah Kurikulum -->
-    <Dialog v-model:visible="dialog" :style="{ width: '450px' }" header="Detail Kurikulum" :modal="true">
-        <div class="flex flex-col gap-6">
-            <div>
-                <label class="block font-bold mb-3">Nama Kurikulum *</label>
-                <InputText v-model.trim="data.nama" required autofocus :invalid="submitted && !data.nama" fluid />
+    <!-- Modal Detail Kurikulum -->
+    <Dialog v-model:visible="dialog" :style="{ width: '600px' }" header="Detail Kurikulum" :modal="true"
+        class="p-fluid">
+        <div class="flex flex-col gap-4 mt-2">
+            <!-- Baris 1: Nama & Semester Mulai -->
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12 md:col-span-8 flex flex-col gap-2">
+                    <label for="nama" class="font-bold text-sm text-gray-600">Nama Kurikulum *</label>
+                    <InputText id="nama" v-model.trim="data.nama" required autofocus
+                        placeholder="Contoh: Kurikulum MBKM 2024" :invalid="submitted && !data.nama" />
+                </div>
+                <div class="col-span-12 md:col-span-4 flex flex-col gap-2">
+                    <label for="sem_mulai" class="font-bold text-sm text-gray-600">Smt. Mulai</label>
+                    <InputText id="sem_mulai" v-model.trim="data.id_semester_mulai" placeholder="20241" />
+                </div>
             </div>
-            <div>
-                <label class="block font-bold mb-3">Program Studi *</label>
-                <Dropdown v-model="data.prodi_id" :options="prodiList" optionLabel="nama_prodi" optionValue="id" placeholder="Pilih Prodi" fluid filter />
+
+            <div class="flex flex-col gap-2">
+                <label for="prodi" class="font-bold text-sm text-gray-600">Program Studi *</label>
+                <Dropdown id="prodi" v-model="data.prodi_id" :options="prodiList" optionLabel="nama_prodi"
+                    optionValue="id" placeholder="Pilih Program Studi" filter :invalid="submitted && !data.prodi_id" />
             </div>
-            <div>
-                <label class="block font-bold mb-3">Tahun Mulai *</label>
-                <InputNumber v-model="data.tahun_mulai" :useGrouping="false" fluid />
+
+            <!-- Section Target SKS -->
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div class="font-bold text-primary text-sm mb-3 border-b pb-2">Target SKS Lulus</div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-gray-500 uppercase">Total Lulus</label>
+                        <InputNumber v-model="data.sks_lulus" :min="0" fluid />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-gray-500 uppercase">SKS Wajib</label>
+                        <InputNumber v-model="data.sks_wajib" :min="0" fluid />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs font-bold text-gray-500 uppercase">SKS Pilihan</label>
+                        <InputNumber v-model="data.sks_pilihan" :min="0" fluid />
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center">
-                <InputSwitch v-model="data.is_active" />
-                <label class="ml-2 font-bold">Aktif</label>
+
+            <!-- Perbaikan Baris Tahun Mulai & ID Feeder agar tidak overlap -->
+            <div class="grid grid-cols-12 gap-4">
+                <div class="col-span-12 md:col-span-4 flex flex-col gap-2">
+                    <label for="tahun" class="font-bold text-sm text-gray-600">Tahun Mulai *</label>
+                    <InputNumber id="tahun" v-model="data.tahun_mulai" :useGrouping="false" placeholder="2024"
+                        :invalid="submitted && !data.tahun_mulai" fluid />
+                </div>
+                <div class="col-span-12 md:col-span-8 flex flex-col gap-2">
+                    <label for="id_feeder" class="font-bold text-sm text-gray-600">ID Kurikulum Feeder</label>
+                    <InputText id="id_feeder" v-model.trim="data.id_kurikulum_feeder" placeholder="Opsional" fluid />
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-100">
+                <ToggleSwitch v-model="data.is_active" />
+                <label class="font-bold text-sm text-gray-700">Set sebagai Kurikulum Aktif</label>
             </div>
         </div>
         <template #footer>
-            <Button label="Batal" icon="pi pi-times" text @click="dialog = false" />
-            <Button label="Simpan" icon="pi pi-check" @click="saveData" />
+            <div class="flex justify-end gap-3 mt-4">
+                <Button label="Batal" icon="pi pi-times" text severity="success" @click="dialog = false" />
+                <Button label="Simpan Perubahan" icon="pi pi-check" severity="success" @click="saveData" />
+            </div>
         </template>
     </Dialog>
 
-    <!-- Dialog Pemetaan Mata Kuliah -->
-    <Dialog v-model:visible="mappingDialog" :style="{ width: '800px' }" :header="`Mata Kuliah: ${selectedKurikulum?.nama}`" :modal="true" maximizable>
-        <div class="flex flex-col gap-4">
-            <div class="flex gap-2">
-                <Dropdown 
-                    v-model="mkToAdd" 
-                    :options="availableMkOptions" 
-                    optionLabel="nama_mk" 
-                    optionValue="id" 
-                    placeholder="Pilih Mata Kuliah untuk ditambahkan" 
-                    class="flex-grow" 
-                    filter 
-                    :filterFields="['kode_mk', 'nama_mk']"
-                >
-                    <template #option="slotProps">
-                        <div class="flex flex-col">
-                            <span class="font-bold">{{ slotProps.option.kode_mk }} - {{ slotProps.option.nama_mk }}</span>
-                            <small>Prodi: {{ slotProps.option.nama_prodi }} | SKS: {{ slotProps.option.sks }}</small>
-                        </div>
-                    </template>
-                </Dropdown>
-                <Button label="Tambah" icon="pi pi-plus" @click="handleAddMk" :disabled="!mkToAdd" />
+    <!-- Modal Pemetaan Mata Kuliah -->
+    <Dialog v-model:visible="mappingDialog" :style="{ width: '850px' }"
+        :header="`Kelola Mata Kuliah: ${selectedKurikulum?.nama}`" :modal="true" maximizable>
+        <div class="flex flex-col gap-6 mt-2">
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <label class="font-bold block mb-3 text-gray-700">Tambah Mata Kuliah Baru</label>
+                <div class="flex gap-2">
+                    <Dropdown v-model="mkToAdd" :options="availableMkOptions" optionLabel="nama_mk" optionValue="id"
+                        placeholder="Pilih mata kuliah untuk ditambahkan" class="flex-grow" filter
+                        :filterFields="['kode_mk', 'nama_mk']">
+                        <template #option="slotProps">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-sm">{{ slotProps.option.kode_mk }} - {{
+                                    slotProps.option.nama_mk }}</span>
+                                <small class="text-xs text-gray-500">SKS: {{ slotProps.option.sks }} | Semester: {{
+                                    slotProps.option.semester_target }} | Jenis: {{ slotProps.option.jenis_mk }}</small>
+                            </div>
+                        </template>
+                    </Dropdown>
+                    <Button label="Tambah" icon="pi pi-plus" @click="handleAddMk" :disabled="!mkToAdd"
+                        severity="primary" />
+                </div>
             </div>
 
-            <DataTable :value="currentSubjects" :loading="isLoading" scrollable scrollHeight="400px">
-                <Column field="kode_mk" header="Kode" style="width: 20%"></Column>
-                <Column field="nama_mk" header="Mata Kuliah" style="width: 50%"></Column>
-                <Column field="sks" header="SKS" style="width: 10%"></Column>
-                <Column field="semester_target" header="Sem." style="width: 10%"></Column>
-                <Column header="Aksi" style="width: 10%">
-                    <template #body="slotProps">
-                        <Button icon="pi pi-trash" severity="danger" text rounded @click="removeMk(slotProps.data.id)" v-tooltip.top="'Hapus dari Kurikulum'" />
+            <div>
+                <DataTable :value="currentSubjects" :loading="isLoading" scrollable scrollHeight="350px"
+                    class="p-datatable-sm" stripedRows>
+                    <template #header>
+                        <span class="font-bold text-gray-700">Mata Kuliah dalam Kurikulum Ini</span>
                     </template>
-                </Column>
-            </DataTable>
+                    <Column field="kode_mk" header="Kode" style="width: 15%"></Column>
+                    <Column field="nama_mk" header="Mata Kuliah" style="width: 45%"></Column>
+                    <Column field="jenis_mk" header="Jenis" style="width: 10%"></Column>
+                    <Column field="sks" header="SKS" style="width: 10%"></Column>
+                    <Column field="semester_target" header="Sem." style="width: 10%"></Column>
+                    <Column header="Aksi" style="width: 10%">
+                        <template #body="slotProps">
+                            <Button icon="pi pi-trash" severity="danger" text rounded
+                                @click="removeMk(slotProps.data.id)" v-tooltip.top="'Hapus dari Kurikulum'" />
+                        </template>
+                    </Column>
+                </DataTable>
+            </div>
         </div>
+        <template #footer>
+            <Button label="Tutup" icon="pi pi-times" text severity="success" @click="mappingDialog = false" />
+        </template>
     </Dialog>
 
-    <!-- Dialog Hapus Kurikulum -->
+    <!-- Dialog Hapus -->
     <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
         <div class="flex items-center gap-4">
             <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-            <span v-if="data">Hapus kurikulum <b>{{ data.nama }}</b>?</span>
+            <span v-if="data">Apakah Anda yakin ingin menghapus kurikulum <b>{{ data.nama }}</b>?</span>
         </div>
         <template #footer>
-            <Button label="Tidak" icon="pi pi-times" text @click="deleteDialog = false" />
-            <Button label="Ya" icon="pi pi-check" @click="deleteData" />
+            <Button label="Batal" icon="pi pi-times" text @click="deleteDialog = false" />
+            <Button label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deleteData" />
         </template>
     </Dialog>
 </template>
+
+<style scoped>
+:deep(.p-dialog-footer) {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+}
+</style>

@@ -1,98 +1,69 @@
 <script setup>
 import { useMahasiswaStore } from '@/stores/mahasiswa';
 import { useProdiStore } from '@/stores/prodi';
-import { FilterMatchMode } from '@primevue/core/api'; // <-- 1. TAMBAHKAN IMPORT INI
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
-import * as XLSX from 'xlsx';
 
-// --- Setup Store dan State ---
 const toast = useToast();
 const mahasiswaStore = useMahasiswaStore();
 const prodiStore = useProdiStore();
-const dt = ref();
-const fileInput = ref(null);
-const importResultDialog = ref(false);
-const importResult = ref(null);
-
 const { mahasiswaList, isLoading } = storeToRefs(mahasiswaStore);
 const { prodiList } = storeToRefs(prodiStore);
 
 const mahasiswaDialog = ref(false);
 const deleteMahasiswaDialog = ref(false);
+const importResultDialog = ref(false);
+const importResult = ref(null);
+const fileInput = ref(null);
 const mahasiswa = ref({});
 const submitted = ref(false);
+const dt = ref();
 
-// --- 2. TAMBAHKAN REF UNTUK FILTERS ---
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
+
+const statusOptions = ['Aktif', 'Cuti', 'Lulus', 'Keluar', 'Non-Aktif'];
 
 onMounted(() => {
     mahasiswaStore.fetchMahasiswa();
     prodiStore.fetchProdi();
 });
 
-// --- Fungsi-fungsi CRUD (tidak ada perubahan) ---
-
 function openNew() {
-    mahasiswa.value = {};
+    mahasiswa.value = { angkatan: new Date().getFullYear(), status_mahasiswa: 'Aktif' };
     submitted.value = false;
     mahasiswaDialog.value = true;
 }
 
-function hideDialog() {
-    mahasiswaDialog.value = false;
-    submitted.value = false;
-}
-
 async function saveMahasiswa() {
     submitted.value = true;
-    if (!mahasiswa.value.nama_mahasiswa?.trim() || !mahasiswa.value.nim?.trim() || !mahasiswa.value.prodi_id || !mahasiswa.value.angkatan || (!mahasiswa.value.id && !mahasiswa.value.password)) {
-        return;
-    }
+
+    // Validasi field wajib
+    if (!mahasiswa.value.nama_mahasiswa?.trim() || !mahasiswa.value.nim?.trim() || !mahasiswa.value.prodi_id) return;
 
     try {
         if (mahasiswa.value.id) {
-            // Mode Update
-            const payload = {
-                nim: mahasiswa.value.nim,
-                nama_mahasiswa: mahasiswa.value.nama_mahasiswa,
-                prodi_id: mahasiswa.value.prodi_id.id || mahasiswa.value.prodi_id,
-                angkatan: mahasiswa.value.angkatan,
-                email: mahasiswa.value.email
-            };
+            // Partial Update: Hanya kirim data yang relevan
+            const payload = { ...mahasiswa.value };
+            delete payload.id;
+            delete payload.nama_prodi;
+            delete payload.username;
+            delete payload.registrasi_id;
+
             await mahasiswaStore.updateMahasiswa(mahasiswa.value.id, payload);
             toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Mahasiswa Diperbarui', life: 3000 });
         } else {
-            // Mode Create
-            const payload = {
-                nim: mahasiswa.value.nim,
-                nama_mahasiswa: mahasiswa.value.nama_mahasiswa,
-                prodi_id: mahasiswa.value.prodi_id.id || mahasiswa.value.prodi_id,
-                angkatan: mahasiswa.value.angkatan,
-                email: mahasiswa.value.email,
-                password: mahasiswa.value.password
-            };
-            await mahasiswaStore.createMahasiswa(payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Mahasiswa Baru Dibuat', life: 3000 });
+            await mahasiswaStore.createMahasiswa(mahasiswa.value);
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Mahasiswa Baru Berhasil Dibuat', life: 3000 });
         }
         mahasiswaDialog.value = false;
         mahasiswa.value = {};
     } catch (error) {
-        // --- PERBAIKAN DI SINI ---
-        // Ambil pesan error spesifik dari backend, jika tidak ada, gunakan pesan default.
-        const errorMessage = error.response?.data?.error || 'Terjadi kesalahan saat menyimpan';
-
-        toast.add({
-            severity: 'error',
-            summary: 'Gagal',
-            detail: errorMessage, // Gunakan pesan dari backend
-            life: 4000 // Durasi sedikit lebih lama agar bisa dibaca
-        });
+        const errMsg = error.response?.data?.error || 'Gagal menyimpan data';
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errMsg, life: 4000 });
     }
 }
 
@@ -110,66 +81,13 @@ async function deleteMahasiswa() {
     try {
         await mahasiswaStore.deleteMahasiswa(mahasiswa.value.id);
         deleteMahasiswaDialog.value = false;
-        mahasiswa.value = {};
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Mahasiswa Dihapus', life: 3000 });
     } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
-
-function exportCSV() {
-    dt.value.exportCSV();
-}
-
-// --- DITAMBAHKAN: Fungsi untuk Export Excel ---
-function exportExcel() {
-    const data = mahasiswaList.value; // Ambil data dari store
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Mahasiswa');
-    XLSX.writeFile(workbook, 'data-mahasiswa.xlsx');
-}
-
-// --- DITAMBAHKAN: Fungsi untuk Export PDF ---
-function exportPDF() {
-    const doc = new jsPDF();
-    const tableHead = [['NIM', 'Nama Mahasiswa', 'Angkatan', 'Program Studi', 'Email']];
-    const tableBody = mahasiswaList.value.map((item) => [item.nim, item.nama_mahasiswa, item.angkatan, item.nama_prodi, item.email || '-']);
-
-    // Panggil autoTable sebagai fungsi, bukan method dari doc
-    autoTable(doc, {
-        head: tableHead,
-        body: tableBody
-    });
-
-    doc.save('data-mahasiswa.pdf');
-}
-const exportItems = ref([
-    {
-        label: 'CSV',
-        icon: 'pi pi-file',
-        command: () => {
-            exportCSV();
-        }
-    },
-    {
-        label: 'Excel',
-        icon: 'pi pi-file-excel',
-        command: () => {
-            exportExcel();
-        }
-    },
-    {
-        label: 'PDF',
-        icon: 'pi pi-file-pdf',
-        command: () => {
-            exportPDF();
-        }
-    }
-]);
 
 function triggerFileInput() {
-    // Fungsi ini untuk memicu klik pada input file yang tersembunyi
     fileInput.value.click();
 }
 
@@ -182,183 +100,197 @@ async function handleFileUpload(event) {
 
     try {
         const result = await mahasiswaStore.importFromCSV(formData);
-        importResult.value = result; // Simpan objek hasil sukses
+        importResult.value = result;
         importResultDialog.value = true;
     } catch (error) {
-        // Backend mengirim data error dalam format JSON yang sama
         importResult.value = error.response?.data || { status: 'ERROR', detail_error: [error.message] };
         importResultDialog.value = true;
     }
-
     event.target.value = '';
 }
 
 async function downloadTemplate() {
     try {
         const blob = await mahasiswaStore.downloadTemplateCSV();
-        // Buat URL sementara untuk file blob
         const url = window.URL.createObjectURL(new Blob([blob]));
-
-        // Buat link <a> tersembunyi untuk memicu download
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', 'template-mahasiswa.csv'); // Nama file yang akan diunduh
+        link.setAttribute('download', 'template-mahasiswa.csv');
         document.body.appendChild(link);
-
-        // Klik link tersebut secara otomatis
         link.click();
-
-        // Hapus link setelah selesai
         link.parentNode.removeChild(link);
         window.URL.revokeObjectURL(url);
-    } catch (error) {
-        toast.add({
-            severity: 'error',
-            summary: 'Gagal',
-            detail: error.message,
-            life: 3000
-        });
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal mengunduh template', life: 3000 });
     }
 }
 </script>
 
 <template>
-    <div>
-        <div class="card">
-            <Toolbar class="mb-6">
-                <template #start>
-                    <Button label="Tambah Mahasiswa" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
+    <div class="card shadow-sm border-0">
+        <Toolbar class="mb-6">
+            <template #start>
+                <Button label="Tambah Mahasiswa" icon="pi pi-plus" severity="primary" class="mr-2" @click="openNew" />
+                <Button label="Import" icon="pi pi-upload" severity="secondary" class="mr-2"
+                    @click="triggerFileInput" />
+                <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" accept=".csv" />
+                <Button label="Unduh Template" icon="pi pi-download" severity="secondary" @click="downloadTemplate" />
+            </template>
+            <template #end>
+                <Button label="Ekspor Data" icon="pi pi-file-excel" severity="secondary" @click="dt.exportCSV()" />
+            </template>
+        </Toolbar>
 
-                    <Button label="Import" icon="pi pi-download" severity="secondary" class="mr-2" @click="triggerFileInput" />
-                    <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" accept=".csv" />
-
-                    <Button label="Unduh Template" icon="pi pi-download" severity="secondary" class="mr-2" @click="downloadTemplate" />
+        <DataTable ref="dt" :value="mahasiswaList" :loading="isLoading" :paginator="true" :rows="10" :filters="filters"
+            stripedRows class="p-datatable-sm">
+            <template #header>
+                <div class="flex flex-wrap gap-2 items-center justify-between">
+                    <h4 class="m-0 font-bold text-gray-700">Manajemen Mahasiswa</h4>
+                    <IconField>
+                        <InputIcon><i class="pi pi-search" /></InputIcon>
+                        <InputText v-model="filters['global'].value" placeholder="Cari mahasiswa..." />
+                    </IconField>
+                </div>
+            </template>
+            <Column field="nim" header="NIM" sortable></Column>
+            <Column field="nama_mahasiswa" header="Nama Lengkap" sortable style="min-width: 14rem"></Column>
+            <Column field="nama_prodi" header="Program Studi" sortable></Column>
+            <Column field="angkatan" header="Angkatan" sortable></Column>
+            <Column field="status_mahasiswa" header="Status">
+                <template #body="slotProps">
+                    <Tag :value="slotProps.data.status_mahasiswa"
+                        :severity="slotProps.data.status_mahasiswa === 'Aktif' ? 'success' : 'warn'" />
                 </template>
-
-                <template #end>
-                    <SplitButton label="Export" icon="pi pi-upload" :model="exportItems" severity="secondary"></SplitButton>
+            </Column>
+            <Column header="Aksi" :exportable="false" style="min-width: 8rem">
+                <template #body="slotProps">
+                    <Button icon="pi pi-pencil" outlined rounded severity="info" class="mr-2"
+                        @click="editMahasiswa(slotProps.data)" v-tooltip.top="'Ubah'" />
+                    <Button icon="pi pi-trash" outlined rounded severity="danger"
+                        @click="confirmDeleteMahasiswa(slotProps.data)" v-tooltip.top="'Hapus'" />
                 </template>
-            </Toolbar>
+            </Column>
+        </DataTable>
 
-            <DataTable
-                ref="dt"
-                export-filename="data-mahasiswa"
-                :value="mahasiswaList"
-                :loading="isLoading"
-                dataKey="id"
-                :paginator="true"
-                :rows="10"
-                :filters="filters"
-                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                :rowsPerPageOptions="[5, 10, 25]"
-                currentPageReportTemplate="Menampilkan {first} sampai {last} dari {totalRecords} mahasiswa"
-            >
-                <template #header>
-                    <div class="flex flex-wrap gap-2 items-center justify-between">
-                        <h4 class="m-0">Manajemen Mahasiswa</h4>
-                        <IconField>
-                            <InputIcon>
-                                <i class="pi pi-search" />
-                            </InputIcon>
-                            <InputText v-model="filters['global'].value" placeholder="Cari..." />
-                        </IconField>
+        <!-- Modal Detail Mahasiswa (Sesuai image_465998.png) -->
+        <Dialog v-model:visible="mahasiswaDialog" :style="{ width: '700px' }" header="Detail Data Mahasiswa"
+            :modal="true" class="p-fluid">
+            <div class="flex flex-col gap-4 mt-2">
+                <!-- Seksi Biodata -->
+                <div class="font-bold text-success border-b pb-2 mb-2">Biodata Dasar</div>
+
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="nim" class="font-bold text-sm text-gray-600">NIM *</label>
+                        <InputText id="nim" v-model.trim="mahasiswa.nim" required placeholder="Contoh: 240101001"
+                            :invalid="submitted && !mahasiswa.nim" />
                     </div>
-                </template>
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="nik" class="font-bold text-sm text-gray-600">NIK (KTP)</label>
+                        <InputText id="nik" v-model.trim="mahasiswa.nik" placeholder="16 Digit NIK" />
+                    </div>
+                </div>
 
-                <Column field="nim" header="NIM" sortable style="min-width: 12rem"></Column>
-                <Column field="nama_mahasiswa" header="Nama Mahasiswa" sortable style="min-width: 16rem"></Column>
-                <Column field="angkatan" header="Angkatan" sortable style="min-width: 8rem"></Column>
-                <Column field="nama_prodi" header="Program Studi" sortable style="min-width: 16rem"></Column>
-                <Column :exportable="false" style="min-width: 12rem" header="Aksi">
-                    <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editMahasiswa(slotProps.data)" v-tooltip.top="'Edit Data'" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteMahasiswa(slotProps.data)" v-tooltip.top="'Hapus Data'" />
-                    </template>
-                </Column>
-            </DataTable>
-        </div>
+                <div class="flex flex-col gap-2">
+                    <label for="nama" class="font-bold text-sm text-gray-600">Nama Lengkap *</label>
+                    <InputText id="nama" v-model.trim="mahasiswa.nama_mahasiswa" required
+                        placeholder="Nama lengkap sesuai identitas" :invalid="submitted && !mahasiswa.nama_mahasiswa" />
+                </div>
 
-        <Dialog v-model:visible="mahasiswaDialog" :style="{ width: '450px' }" header="Detail Mahasiswa" :modal="true">
-            <div class="flex flex-col gap-6">
-                <div>
-                    <label for="nim" class="block font-bold mb-3">NIM</label>
-                    <InputText id="nim" v-model.trim="mahasiswa.nim" required="true" autofocus :invalid="submitted && !mahasiswa.nim" fluid />
-                    <small v-if="submitted && !mahasiswa.nim" class="text-red-500">NIM harus diisi.</small>
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="email" class="font-bold text-sm text-gray-600">Email</label>
+                        <InputText id="email" v-model.trim="mahasiswa.email" placeholder="email@student.ac.id" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="ibu" class="font-bold text-sm text-gray-600">Nama Ibu Kandung</label>
+                        <InputText id="ibu" v-model.trim="mahasiswa.nama_ibu_kandung" placeholder="Nama ibu kandung" />
+                    </div>
                 </div>
-                <div>
-                    <label for="nama_mahasiswa" class="block font-bold mb-3">Nama Mahasiswa</label>
-                    <InputText id="nama_mahasiswa" v-model.trim="mahasiswa.nama_mahasiswa" required="true" :invalid="submitted && !mahasiswa.nama_mahasiswa" fluid />
-                    <small v-if="submitted && !mahasiswa.nama_mahasiswa" class="text-red-500">Nama Mahasiswa harus diisi.</small>
+
+                <!-- Seksi Akademik -->
+                <div class="font-bold text-success border-b pb-2 mb-2 mt-4">Rekam Akademik</div>
+
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="prodi" class="font-bold text-sm text-gray-600">Program Studi *</label>
+                        <Dropdown id="prodi" v-model="mahasiswa.prodi_id" :options="prodiList" optionLabel="nama_prodi"
+                            optionValue="id" placeholder="Pilih Program Studi"
+                            :invalid="submitted && !mahasiswa.prodi_id" filter />
+                    </div>
+                    <!-- Perbaikan Tumpang Tindih pada Angkatan dan Status -->
+                    <div class="col-span-12 md:col-span-3 flex flex-col gap-2">
+                        <label for="angkatan" class="font-bold text-sm text-gray-600">Angkatan</label>
+                        <InputNumber id="angkatan" v-model="mahasiswa.angkatan" :useGrouping="false" placeholder="2024"
+                            fluid />
+                    </div>
+                    <div class="col-span-12 md:col-span-3 flex flex-col gap-2">
+                        <label for="status" class="font-bold text-sm text-gray-600">Status</label>
+                        <Dropdown id="status" v-model="mahasiswa.status_mahasiswa" :options="statusOptions"
+                            placeholder="Pilih Status" fluid />
+                    </div>
                 </div>
-                <div>
-                    <label for="email" class="block font-bold mb-3">Email</label>
-                    <InputText id="email" v-model.trim="mahasiswa.email" fluid />
-                </div>
-                <div>
-                    <label for="angkatan" class="block font-bold mb-3">Angkatan</label>
-                    <InputNumber id="angkatan" v-model="mahasiswa.angkatan" required="true" :invalid="submitted && !mahasiswa.angkatan" :useGrouping="false" />
-                    <small v-if="submitted && !mahasiswa.angkatan" class="text-red-500">Angkatan harus diisi.</small>
-                </div>
-                <div>
-                    <label for="prodi_id" class="block font-bold mb-3">Program Studi</label>
-                    <Dropdown id="prodi_id" v-model="mahasiswa.prodi_id" :options="prodiList" optionLabel="nama_prodi" optionValue="id" placeholder="Pilih Program Studi" :invalid="submitted && !mahasiswa.prodi_id" fluid />
-                    <small v-if="submitted && !mahasiswa.prodi_id" class="text-red-500">Program Studi harus dipilih.</small>
-                </div>
-                <div v-if="!mahasiswa.id">
-                    <label for="password" class="block font-bold mb-3">Password</label>
-                    <Password id="password" v-model="mahasiswa.password" required="true" :invalid="submitted && !mahasiswa.password" :feedback="false" toggleMask fluid />
-                    <small v-if="submitted && !mahasiswa.password" class="text-red-500">Password harus diisi saat membuat data baru.</small>
+
+                <div v-if="!mahasiswa.id" class="flex flex-col gap-2">
+                    <label for="pass" class="font-bold text-sm text-gray-600">Kata Sandi Baru *</label>
+                    <Password id="pass" v-model="mahasiswa.password" toggleMask :feedback="false"
+                        placeholder="Minimal 6 karakter" />
                 </div>
             </div>
             <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Simpan" icon="pi pi-check" @click="saveMahasiswa" />
+                <div class="flex justify-end gap-3 mt-4">
+                    <Button label="Batal" icon="pi pi-times" text severity="success" @click="mahasiswaDialog = false" />
+                    <Button label="Simpan Perubahan" icon="pi pi-check" severity="success" @click="saveMahasiswa" />
+                </div>
             </template>
         </Dialog>
-        <Dialog v-model:visible="deleteMahasiswaDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle !text-3xl" />
-                <span v-if="mahasiswa"
-                    >Apakah Anda yakin ingin menghapus <b>{{ mahasiswa.nama_mahasiswa }}</b
-                    >?</span
-                >
-            </div>
-            <template #footer>
-                <Button label="Tidak" icon="pi pi-times" text @click="deleteMahasiswaDialog = false" />
-                <Button label="Ya" icon="pi pi-check" @click="deleteMahasiswa" />
-            </template>
-        </Dialog>
-        <Dialog v-model:visible="importResultDialog" :style="{ width: '500px' }" header="Hasil Impor CSV" :modal="true">
-            <p></p>
+
+        <!-- Dialog Hasil Import -->
+        <Dialog v-model:visible="importResultDialog" :style="{ width: '500px' }" header="Hasil Import Data"
+            :modal="true">
             <div v-if="importResult">
-                <Message v-if="importResult.status === 'SUKSES'" severity="success" :closable="false"> Impor Berhasil </Message>
-                <Message v-else severity="error" :closable="false">
-                    {{ importResult.status }}
+                <Message v-if="importResult.status === 'SUKSES'" severity="success" :closable="false">Proses Import
+                    Berhasil
                 </Message>
+                <Message v-else severity="error" :closable="false">{{ importResult.status }}</Message>
 
-                <div class="mt-4 text-lg">
-                    <p>
-                        <i class="pi pi-file-import mr-2"></i>
-                        <strong>Total Baris Dipindai:</strong> {{ importResult.total_baris_dipindai }}
-                    </p>
-                    <p>
-                        <i class="pi pi-check-circle mr-2 text-green-500"></i>
-                        <strong>Baris Berhasil Disimpan:</strong> {{ importResult.baris_berhasil_disimpan }}
-                    </p>
+                <div class="mt-4 p-3 bg-gray-50 rounded border border-gray-100">
+                    <p class="mb-2"><i class="pi pi-file-import mr-2 text-primary"></i><strong>Total Baris
+                            Dipindai:</strong> {{
+                                importResult.total_baris_dipindai }}</p>
+                    <p class="m-0"><i class="pi pi-check-circle mr-2 text-green-500"></i><strong>Berhasil
+                            Disimpan:</strong> {{
+                                importResult.baris_berhasil_disimpan }}</p>
                 </div>
 
                 <div v-if="importResult.detail_error && importResult.detail_error.length > 0" class="mt-4">
-                    <strong class="block mb-2">Detail Kesalahan:</strong>
-                    <ul class="list-disc pl-5 m-0 bg-red-50 border border-red-200 text-red-700 p-3 rounded-md">
-                        <li v-for="(err, index) in importResult.detail_error" :key="index">
-                            {{ err }}
-                        </li>
+                    <strong class="block mb-2 text-red-600 text-sm">Detail Kesalahan:</strong>
+                    <ul class="list-disc pl-5 m-0 bg-red-50 border border-red-100 text-red-700 p-3 rounded-md text-xs">
+                        <li v-for="(err, index) in importResult.detail_error" :key="index">{{ err }}</li>
                     </ul>
                 </div>
             </div>
             <template #footer>
-                <Button label="OK" icon="pi pi-check" @click="importResultDialog = false" autofocus />
+                <Button label="Tutup" icon="pi pi-check" @click="importResultDialog = false" severity="primary" />
+            </template>
+        </Dialog>
+
+        <!-- Dialog Konfirmasi Hapus -->
+        <Dialog v-model:visible="deleteMahasiswaDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
+            <div class="flex items-center gap-4">
+                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
+                <span v-if="mahasiswa">Yakin ingin menghapus mahasiswa <b>{{ mahasiswa.nama_mahasiswa }}</b>?</span>
+            </div>
+            <template #footer>
+                <Button label="Batal" icon="pi pi-times" text @click="deleteMahasiswaDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deleteMahasiswa" />
             </template>
         </Dialog>
     </div>
 </template>
+
+<style scoped>
+:deep(.p-dialog-footer) {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+}
+</style>
