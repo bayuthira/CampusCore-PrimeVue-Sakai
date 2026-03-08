@@ -15,7 +15,8 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
                 const response = await apiClient.get('/akademik/jadwal-kuliah', { params: filters });
                 this.list = response.data.map((jadwal) => ({
                     ...jadwal,
-                    dosen_pengampu_searchable: jadwal.dosen_pengampu.map((d) => d.nama_dosen).join(', ')
+                    // Gabungkan nama dosen untuk pencarian global di tabel
+                    dosen_pengampu_searchable: (jadwal.dosen_pengampu || []).map((d) => d.nama_dosen).join(', ')
                 }));
             } catch (e) {
                 this.error = 'Gagal mengambil jadwal kuliah.';
@@ -57,7 +58,7 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
                 return response.data;
             } catch (e) {
                 console.error('Gagal mengambil data ruangan tersedia:', e);
-                throw new Error('Gagal mengambil data ruangan tersedia.');
+                throw e;
             }
         },
         async plotRuangan(data) {

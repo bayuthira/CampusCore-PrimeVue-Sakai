@@ -1,44 +1,55 @@
 <script setup>
 import { useDosenStore } from '@/stores/dosen';
+import { usePegawaiStore } from '@/stores/pegawai';
 import { useProdiStore } from '@/stores/prodi';
-import { FilterMatchMode } from '@primevue/core/api'; // <-- DITAMBAHKAN
+import { FilterMatchMode } from '@primevue/core/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import * as XLSX from 'xlsx';
 
-// --- Setup Store dan State ---
 const toast = useToast();
 const dosenStore = useDosenStore();
 const prodiStore = useProdiStore();
+const pegawaiStore = usePegawaiStore();
 
 const { dosenList, isLoading } = storeToRefs(dosenStore);
 const { prodiList } = storeToRefs(prodiStore);
+const { list: allPegawaiList } = storeToRefs(pegawaiStore);
 
 const dosenDialog = ref(false);
 const deleteDosenDialog = ref(false);
 const dosen = ref({});
 const submitted = ref(false);
 
-// --- DITAMBAHKAN: State untuk Search dan Export ---
 const dt = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
+const ikatanKerjaOptions = ref([
+    { label: 'Dosen Tetap (A)', value: 'A' },
+    { label: 'Dosen Dpk (B)', value: 'B' },
+    { label: 'Dosen LB (C)', value: 'C' }
+]);
+
+// Filter pegawai yang hanya berkategori "Tenaga Pendidik"
+const pendidikList = computed(() => {
+    return allPegawaiList.value.filter(p => p.kategori_pegawai === 'Tenaga Pendidik');
+});
+
 onMounted(() => {
     dosenStore.fetchDosen();
     prodiStore.fetchProdi();
+    pegawaiStore.fetchAll();
 });
 
-// --- DITAMBAHKAN: Fungsi untuk Export ---
 function exportCSV() {
     dt.value.exportCSV();
 }
 
-// --- DITAMBAHKAN: Fungsi untuk Export Excel ---
 function exportExcel() {
     const data = dosenList.value;
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -47,48 +58,22 @@ function exportExcel() {
     XLSX.writeFile(workbook, 'data-dosen.xlsx');
 }
 
-// --- DITAMBAHKAN: Fungsi untuk Export PDF ---
 function exportPDF() {
     const doc = new jsPDF();
     const tableHead = [['NIDN', 'Nama Dosen', 'Email', 'Program Studi']];
     const tableBody = dosenList.value.map((item) => [item.nidn, item.nama_dosen, item.email || '-', item.nama_prodi]);
-
-    autoTable(doc, {
-        head: tableHead,
-        body: tableBody
-    });
-
+    autoTable(doc, { head: tableHead, body: tableBody });
     doc.save('data-dosen.pdf');
 }
 
 const exportItems = ref([
-    {
-        label: 'CSV',
-        icon: 'pi pi-file',
-        command: () => {
-            exportCSV();
-        }
-    },
-    {
-        label: 'Excel',
-        icon: 'pi pi-file-excel',
-        command: () => {
-            exportExcel();
-        }
-    },
-    {
-        label: 'PDF',
-        icon: 'pi pi-file-pdf',
-        command: () => {
-            exportPDF();
-        }
-    }
+    { label: 'CSV', icon: 'pi pi-file', command: exportCSV },
+    { label: 'Excel', icon: 'pi pi-file-excel', command: exportExcel },
+    { label: 'PDF', icon: 'pi pi-file-pdf', command: exportPDF }
 ]);
 
-// --- Fungsi-fungsi CRUD ---
-
 function openNew() {
-    dosen.value = {};
+    dosen.value = { ikatan_kerja: 'A' };
     submitted.value = false;
     dosenDialog.value = true;
 }
@@ -101,44 +86,39 @@ function hideDialog() {
 async function saveDosen() {
     submitted.value = true;
 
-    if (!dosen.value.nama_dosen?.trim() || !dosen.value.nidn?.trim() || !dosen.value.prodi_id || (!dosen.value.id && !dosen.value.password)) {
+    // Nama dan Email tidak lagi dikirim karena ambil dari master Pegawai
+    if (!dosen.value.nidn?.trim() || !dosen.value.prodi_id || (!dosen.value.id && !dosen.value.pegawai_id)) {
         return;
     }
 
     try {
         if (dosen.value.id) {
+            // Partial Update: Hanya kirim yang relevan
             const payload = {
                 nidn: dosen.value.nidn,
-                nama_dosen: dosen.value.nama_dosen,
                 prodi_id: dosen.value.prodi_id.id || dosen.value.prodi_id,
-                email: dosen.value.email
+                ikatan_kerja: dosen.value.ikatan_kerja,
+                id_penugasan_feeder: dosen.value.id_penugasan_feeder
             };
             await dosenStore.updateDosen(dosen.value.id, payload);
             toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Dosen Diperbarui', life: 3000 });
         } else {
+            // Create: Wajib kirim pegawai_id
             const payload = {
                 nidn: dosen.value.nidn,
-                nama_dosen: dosen.value.nama_dosen,
+                pegawai_id: dosen.value.pegawai_id,
                 prodi_id: dosen.value.prodi_id.id || dosen.value.prodi_id,
-                email: dosen.value.email,
-                password: dosen.value.password
+                ikatan_kerja: dosen.value.ikatan_kerja,
+                id_penugasan_feeder: dosen.value.id_penugasan_feeder
             };
             await dosenStore.createDosen(payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dosen Baru Dibuat', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dosen Berhasil Ditambahkan', life: 3000 });
         }
         dosenDialog.value = false;
         dosen.value = {};
     } catch (error) {
-        // --- PERBAIKAN DI SINI ---
-        // Ambil pesan error spesifik dari backend, jika tidak ada, gunakan pesan default.
         const errorMessage = error.response?.data?.error || 'Terjadi kesalahan saat menyimpan';
-
-        toast.add({
-            severity: 'error',
-            summary: 'Gagal',
-            detail: errorMessage, // Gunakan pesan dari backend
-            life: 4000 // Durasi sedikit lebih lama agar bisa dibaca
-        });
+        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
     }
 }
 
@@ -156,8 +136,7 @@ async function deleteDosen() {
     try {
         await dosenStore.deleteDosen(dosen.value.id);
         deleteDosenDialog.value = false;
-        dosen.value = {};
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Dosen Dihapus', life: 3000 });
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dosen Berhasil Dihapus', life: 3000 });
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
     }
@@ -166,97 +145,105 @@ async function deleteDosen() {
 
 <template>
     <div>
-        <div class="card">
+        <div class="card shadow-sm border-0">
             <Toolbar class="mb-6">
                 <template #start>
-                    <Button label="Tambah Dosen" icon="pi pi-plus" severity="secondary" class="mr-2" @click="openNew" />
+                    <Button label="Tambah Dosen" icon="pi pi-plus" severity="primary" class="mr-2" @click="openNew" />
                 </template>
                 <template #end>
-                    <SplitButton label="Export" icon="pi pi-upload" :model="exportItems" severity="secondary"></SplitButton>
+                    <SplitButton label="Ekspor Data" icon="pi pi-upload" :model="exportItems" severity="secondary">
+                    </SplitButton>
                 </template>
             </Toolbar>
 
-            <DataTable
-                ref="dt"
-                :value="dosenList"
-                :loading="isLoading"
-                dataKey="id"
-                :paginator="true"
-                :rows="10"
-                :filters="filters"
-                paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                :rowsPerPageOptions="[5, 10, 25]"
-                currentPageReportTemplate="Menampilkan {first} sampai {last} dari {totalRecords} dosen"
-            >
+            <DataTable ref="dt" :value="dosenList" :loading="isLoading" dataKey="id" :paginator="true" :rows="10"
+                :filters="filters" stripedRows class="p-datatable-sm">
                 <template #header>
                     <div class="flex flex-wrap gap-2 items-center justify-between">
-                        <h4 class="m-0">Manajemen Dosen</h4>
+                        <h4 class="m-0 font-bold text-gray-700">Data Master Dosen</h4>
                         <IconField>
-                            <InputIcon>
-                                <i class="pi pi-search" />
-                            </InputIcon>
+                            <InputIcon> <i class="pi pi-search" /> </InputIcon>
                             <InputText v-model="filters['global'].value" placeholder="Cari..." />
                         </IconField>
                     </div>
                 </template>
 
-                <Column field="nidn" header="NIDN" sortable style="min-width: 12rem"></Column>
-                <Column field="nama_dosen" header="Nama Dosen" sortable style="min-width: 16rem"></Column>
-                <Column field="email" header="Email" sortable style="min-width: 16rem"></Column>
-                <Column field="nama_prodi" header="Program Studi" sortable style="min-width: 16rem"></Column>
-                <Column :exportable="false" style="min-width: 12rem" header="Aksi">
+                <Column field="nidn" header="NIDN" sortable></Column>
+                <Column field="nama_dosen" header="Nama Dosen" sortable style="min-width: 14rem"></Column>
+                <Column field="email" header="Email" sortable></Column>
+                <Column field="nama_prodi" header="Program Studi" sortable></Column>
+                <Column :exportable="false" style="min-width: 8rem" header="Aksi">
                     <template #body="slotProps">
-                        <Button icon="pi pi-pencil" outlined rounded class="mr-2" @click="editDosen(slotProps.data)" v-tooltip.top="'Edit Data'" />
-                        <Button icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDeleteDosen(slotProps.data)" v-tooltip.top="'Hapus Data'" />
+                        <Button icon="pi pi-pencil" outlined rounded severity="info" class="mr-2"
+                            @click="editDosen(slotProps.data)" v-tooltip.top="'Ubah'" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger"
+                            @click="confirmDeleteDosen(slotProps.data)" v-tooltip.top="'Hapus'" />
                     </template>
                 </Column>
             </DataTable>
         </div>
 
-        <Dialog v-model:visible="dosenDialog" :style="{ width: '450px' }" header="Detail Dosen" :modal="true">
-            <div class="flex flex-col gap-6">
-                <div>
-                    <label for="nidn" class="block font-bold mb-3">NIDN</label>
-                    <InputText id="nidn" v-model.trim="dosen.nidn" required="true" autofocus :invalid="submitted && !dosen.nidn" fluid />
-                    <small v-if="submitted && !dosen.nidn" class="text-red-500">NIDN harus diisi.</small>
+        <!-- Modal Detail Dosen -->
+        <Dialog v-model:visible="dosenDialog" :style="{ width: '550px' }" header="Detail Data Dosen" :modal="true"
+            class="p-fluid">
+            <div class="flex flex-col gap-4 mt-2">
+                <!-- Dropdown Pegawai hanya untuk input baru -->
+                <div v-if="!dosen.id" class="flex flex-col gap-2">
+                    <label for="pegawai" class="font-bold text-sm text-gray-600">Pilih Pegawai *</label>
+                    <Dropdown id="pegawai" v-model="dosen.pegawai_id" :options="pendidikList" optionLabel="nama_lengkap"
+                        optionValue="id" placeholder="Cari Nama Pegawai (Pendidik)" filter
+                        :invalid="submitted && !dosen.pegawai_id" />
+                    <small class="text-gray-400">Data nama, email, dan biodata akan diambil dari profil Pegawai.</small>
                 </div>
-                <div>
-                    <label for="nama_dosen" class="block font-bold mb-3">Nama Dosen</label>
-                    <InputText id="nama_dosen" v-model.trim="dosen.nama_dosen" required="true" :invalid="submitted && !dosen.nama_dosen" fluid />
-                    <small v-if="submitted && !dosen.nama_dosen" class="text-red-500">Nama Dosen harus diisi.</small>
+
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="nidn" class="font-bold text-sm text-gray-600">NIDN / NIDK *</label>
+                        <InputText id="nidn" v-model.trim="dosen.nidn" required :invalid="submitted && !dosen.nidn" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label for="ikatan" class="font-bold text-sm text-gray-600">Ikatan Kerja</label>
+                        <Dropdown id="ikatan" v-model="dosen.ikatan_kerja" :options="ikatanKerjaOptions"
+                            optionLabel="label" optionValue="value" placeholder="Pilih Ikatan" />
+                    </div>
                 </div>
-                <div>
-                    <label for="email" class="block font-bold mb-3">Email</label>
-                    <InputText id="email" v-model.trim="dosen.email" fluid />
+
+                <div class="flex flex-col gap-2">
+                    <label for="prodi" class="font-bold text-sm text-gray-600">Program Studi (Homebase) *</label>
+                    <Dropdown id="prodi" v-model="dosen.prodi_id" :options="prodiList" optionLabel="nama_prodi"
+                        optionValue="id" placeholder="Pilih Prodi" filter :invalid="submitted && !dosen.prodi_id" />
                 </div>
-                <div>
-                    <label for="prodi_id" class="block font-bold mb-3">Program Studi</label>
-                    <Dropdown id="prodi_id" v-model="dosen.prodi_id" :options="prodiList" optionLabel="nama_prodi" optionValue="id" placeholder="Pilih Program Studi" :invalid="submitted && !dosen.prodi_id" fluid />
-                    <small v-if="submitted && !dosen.prodi_id" class="text-red-500">Program Studi harus dipilih.</small>
-                </div>
-                <div v-if="!dosen.id">
-                    <label for="password" class="block font-bold mb-3">Password</label>
-                    <Password id="password" v-model="dosen.password" required="true" :invalid="submitted && !dosen.password" :feedback="false" toggleMask fluid />
-                    <small v-if="submitted && !dosen.password" class="text-red-500">Password harus diisi saat membuat dosen baru.</small>
+
+                <div class="flex flex-col gap-2">
+                    <label for="feeder" class="font-bold text-sm text-gray-600 text-xs">ID Penugasan (Neo
+                        Feeder)</label>
+                    <InputText id="feeder" v-model.trim="dosen.id_penugasan_feeder" placeholder="UUID dari Feeder" />
                 </div>
             </div>
+
             <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="hideDialog" />
-                <Button label="Simpan" icon="pi pi-check" @click="saveDosen" />
+                <div class="flex justify-end gap-3 mt-4">
+                    <Button label="Batal" icon="pi pi-times" text severity="success" @click="hideDialog" />
+                    <Button label="Simpan Perubahan" icon="pi pi-check" severity="success" @click="saveDosen" />
+                </div>
             </template>
         </Dialog>
-        <Dialog v-model:visible="deleteDosenDialog" :style="{ width: '450px' }" header="Confirm" :modal="true">
+
+        <Dialog v-model:visible="deleteDosenDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
             <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle !text-3xl" />
-                <span v-if="dosen"
-                    >Apakah Anda yakin ingin menghapus <b>{{ dosen.nama_dosen }}</b
-                    >?</span
-                >
+                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
+                <span v-if="dosen">Yakin ingin menghapus ikatan dosen <b>{{ dosen.nama_dosen }}</b>?</span>
             </div>
             <template #footer>
-                <Button label="Tidak" icon="pi pi-times" text @click="deleteDosenDialog = false" />
-                <Button label="Ya" icon="pi pi-check" @click="deleteDosen" />
+                <Button label="Batal" icon="pi pi-times" text @click="deleteDosenDialog = false" />
+                <Button label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deleteDosen" />
             </template>
         </Dialog>
     </div>
 </template>
+
+<style scoped>
+:deep(.p-dialog-footer) {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+}
+</style>
