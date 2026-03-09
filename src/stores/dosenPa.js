@@ -33,6 +33,15 @@ export const useDosenPaStore = defineStore('dosenPa', {
             await apiClient.put(`/krs/enrollments/${enrollmentId}/status`, {
                 status_approval: status
             });
+        },
+        // --- Admin Actions ---
+        async singleAssign(payload) {
+            // payload: { registrasi_id, dosen_pa_id }
+            await apiClient.put('/dosen-pa/single-assign', payload);
+        },
+        async batchAssign(payload) {
+            // payload: { prodi_id, angkatan, kode_rombel, dosen_pa_id }
+            await apiClient.put('/dosen-pa/batch-assign', payload);
         }
     }
 });

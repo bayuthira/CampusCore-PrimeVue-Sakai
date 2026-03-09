@@ -100,6 +100,15 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['DOSEN'], title: 'Persetujuan KRS' }
                 },
                 {
+                    path: '/akademik/pengaturan-dosen-pa',
+                    name: 'pengaturan-dosen-pa',
+                    component: () => import('@/views/akademik/PengaturanDosenPa.vue'),
+                    meta: {
+                        roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'KAPRODI'],
+                        title: 'Pengaturan Dosen PA'
+                    }
+                },
+                {
                     path: '/fasilitas/jadwal-ruangan',
                     name: 'jadwal-ruangan',
                     component: () => import('@/views/fasilitas/JadwalRuangan.vue'),
