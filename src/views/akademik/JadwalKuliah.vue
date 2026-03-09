@@ -111,14 +111,15 @@ function formatTimeToOffset(date) {
     const m = String(d.getMinutes()).padStart(2, '0');
     const tzOffset = -d.getTimezoneOffset();
     const sign = tzOffset >= 0 ? '+' : '-';
-    const offH = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
-    const offM = String(Math.abs(tzOffset) % 60).padStart(2, '0');
+    const offH = String(Math.floor(Math.abs(timezoneOffset) / 60)).padStart(2, '0');
+    const offM = String(Math.abs(timezoneOffset) % 60).padStart(2, '0');
     return `${h}:${m}${sign}${offH}:${offM}`;
 }
 
 async function saveData() {
     submitted.value = true;
     if (!jadwal.value.matakuliah_id || !jadwal.value.tahun_akademik_id || !jadwal.value.kelas?.trim() || !jadwal.value.jam_mulai || !jadwal.value.jam_selesai) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Harap lengkapi semua field wajib (*)', life: 3000 });
         return;
     }
 
@@ -159,7 +160,8 @@ function editData(row) {
     jadwal.value = {
         ...row,
         jam_mulai: parseTime(row.jam_mulai),
-        jam_selesai: parseTime(row.jam_selesai)
+        jam_selesai: parseTime(row.jam_selesai),
+        dosen_pengampu: (row.dosen_pengampu || []).map(d => ({ ...d }))
     };
     dialog.value = true;
 }
@@ -204,7 +206,7 @@ function confirmUnplot(row) {
             try {
                 await jadwalStore.unplotRuangan(row.id);
                 toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Plot ruangan dihapus', life: 3000 });
-            } catch (e) {
+            } catch (error) {
                 toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal unplot', life: 3000 });
             }
         }
@@ -221,7 +223,7 @@ async function deleteData() {
         await jadwalStore.delete(jadwal.value.id);
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jadwal dihapus', life: 3000 });
         deleteDialog.value = false;
-    } catch (e) {
+    } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
     }
 }
@@ -239,7 +241,7 @@ async function deleteData() {
             </template>
         </Toolbar>
 
-        <!-- Filter -->
+        <!-- Filter Area -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border">
             <div class="flex flex-col gap-2">
                 <label class="font-bold text-sm text-gray-600">Filter Program Studi</label>
@@ -281,6 +283,7 @@ async function deleteData() {
             <Column field="nama_ruangan" header="Ruangan" sortable>
                 <template #body="slotProps">{{ slotProps.data.nama_ruangan || '-' }}</template>
             </Column>
+            <Column field="nama_prodi" header="Program Studi" sortable></Column>
             <Column header="Dosen Pengampu">
                 <template #body="slotProps">
                     <ul class="list-none p-0 m-0">
@@ -314,57 +317,80 @@ async function deleteData() {
             </Column>
         </DataTable>
 
-        <!-- Modal Detail Jadwal -->
-        <Dialog v-model:visible="dialog" :style="{ width: '800px' }" header="Detail Jadwal Perkuliahan" :modal="true"
+        <!-- Modal Detail Jadwal (Rapi Sesuai image_57d15f.png) -->
+        <Dialog v-model:visible="dialog" :style="{ width: '750px' }" header="Detail Jadwal Perkuliahan" :modal="true"
             class="p-fluid">
-            <div class="grid grid-cols-12 gap-4 mt-2">
-                <div class="col-span-12 md:col-span-6">
-                    <label class="font-bold text-sm block mb-2 text-gray-600">Tahun Akademik *</label>
-                    <Dropdown v-model="jadwal.tahun_akademik_id" :options="tahunAkademikList" optionLabel="nama"
-                        optionValue="id" placeholder="Pilih Semester"
-                        :invalid="submitted && !jadwal.tahun_akademik_id" />
-                </div>
-                <div class="col-span-12 md:col-span-6">
-                    <label class="font-bold text-sm block mb-2 text-gray-600">Mata Kuliah *</label>
-                    <Dropdown v-model="jadwal.matakuliah_id" :options="mataKuliahList" optionLabel="nama_mk"
-                        optionValue="id" placeholder="Cari Mata Kuliah" filter
-                        :invalid="submitted && !jadwal.matakuliah_id" />
-                </div>
-
-                <div class="col-span-12 md:col-span-4">
-                    <label class="font-bold text-sm block mb-2 text-gray-600">Nama Kelas *</label>
-                    <InputText v-model.trim="jadwal.kelas" placeholder="Contoh: 01 atau A"
-                        :invalid="submitted && !jadwal.kelas" />
-                </div>
-                <div class="col-span-12 md:col-span-8">
-                    <label class="font-bold text-sm block mb-2 text-gray-600">Hari *</label>
-                    <Dropdown v-model="jadwal.hari" :options="hariOptions" placeholder="Pilih Hari"
-                        :invalid="submitted && !jadwal.hari" />
-                </div>
-
-                <div class="col-span-12 md:col-span-6">
-                    <label class="font-bold text-sm block mb-2 text-gray-600">Jam Mulai *</label>
-                    <Calendar v-model="jadwal.jam_mulai" timeOnly :invalid="submitted && !jadwal.jam_mulai" />
-                </div>
-                <div class="col-span-12 md:col-span-6">
-                    <label class="font-bold text-sm block mb-2 text-gray-600">Jam Selesai *</label>
-                    <Calendar v-model="jadwal.jam_selesai" timeOnly :invalid="submitted && !jadwal.jam_selesai" />
+            <div class="flex flex-col gap-5 mt-2">
+                <!-- Row 1: Tahun Akademik & Mata Kuliah -->
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label class="font-bold text-sm text-gray-600">Tahun Akademik *</label>
+                        <Dropdown v-model="jadwal.tahun_akademik_id" :options="tahunAkademikList" optionLabel="nama"
+                            optionValue="id" placeholder="Pilih Semester"
+                            :invalid="submitted && !jadwal.tahun_akademik_id" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label class="font-bold text-sm text-gray-600">Mata Kuliah *</label>
+                        <!-- PERBAIKAN: Menambahkan Template #option untuk menampilkan Kode dan SKS -->
+                        <Dropdown v-model="jadwal.matakuliah_id" :options="mataKuliahList" optionLabel="nama_mk"
+                            optionValue="id" placeholder="Cari Mata Kuliah" filter
+                            :filterFields="['kode_mk', 'nama_mk']" :invalid="submitted && !jadwal.matakuliah_id">
+                            <template #option="slotProps">
+                                <div class="flex flex-col gap-1">
+                                    <div class="font-bold text-sm text-gray-800">{{ slotProps.option.kode_mk }} - {{
+                                        slotProps.option.nama_mk }}</div>
+                                    <small class="text-gray-500">Bobot: {{ slotProps.option.sks }} SKS</small>
+                                </div>
+                            </template>
+                        </Dropdown>
+                    </div>
                 </div>
 
-                <!-- Bagian Dosen Pengampu -->
-                <div class="col-span-12 mt-4">
-                    <div class="flex justify-between items-center border-b pb-2 mb-3">
-                        <span class="font-bold text-primary">Dosen Pengampu (Team Teaching)</span>
-                        <Button label="Tambah Dosen" icon="pi pi-plus" size="small" text @click="addDosen" />
+                <!-- Row 2: Nama Kelas & Hari -->
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-4 flex flex-col gap-2">
+                        <label class="font-bold text-sm text-gray-600">Nama Kelas *</label>
+                        <InputText v-model.trim="jadwal.kelas" placeholder="Contoh: 01 atau A"
+                            :invalid="submitted && !jadwal.kelas" />
+                    </div>
+                    <div class="col-span-12 md:col-span-8 flex flex-col gap-2">
+                        <label class="font-bold text-sm text-gray-600">Hari *</label>
+                        <Dropdown v-model="jadwal.hari" :options="hariOptions" placeholder="Senin"
+                            :invalid="submitted && !jadwal.hari" />
+                    </div>
+                </div>
+
+                <!-- Row 3: Jam Mulai & Jam Selesai -->
+                <div class="grid grid-cols-12 gap-4">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label class="font-bold text-sm text-gray-600">Jam Mulai *</label>
+                        <DatePicker v-model="jadwal.jam_mulai" timeOnly :invalid="submitted && !jadwal.jam_mulai"
+                            placeholder="--:--" />
+                    </div>
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                        <label class="font-bold text-sm text-gray-600">Jam Selesai *</label>
+                        <DatePicker v-model="jadwal.jam_selesai" timeOnly :invalid="submitted && !jadwal.jam_selesai"
+                            placeholder="--:--" />
+                    </div>
+                </div>
+
+                <!-- Bagian Dosen Pengampu (Team Teaching) -->
+                <div class="mt-2">
+                    <div class="flex justify-between items-center border-b border-gray-200 pb-2 mb-4">
+                        <span class="font-bold text-success text-base">Dosen Pengampu (Team Teaching)</span>
+                        <Button label="Tambah Dosen" icon="pi pi-plus" size="small" text severity="success"
+                            @click="addDosen" class="font-bold" />
                     </div>
 
                     <div v-for="(d, index) in jadwal.dosen_pengampu" :key="index"
-                        class="p-3 bg-gray-50 rounded border mb-3 relative">
+                        class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4 relative shadow-sm">
+                        <!-- Tombol Hapus Dosen -->
                         <Button icon="pi pi-times" severity="danger" text rounded size="small"
                             class="absolute top-1 right-1" @click="removeDosen(index)"
                             v-if="jadwal.dosen_pengampu.length > 1" />
 
-                        <div class="grid grid-cols-12 gap-3">
+                        <div class="grid grid-cols-12 gap-4">
+                            <!-- Nama Dosen & Peran -->
                             <div class="col-span-12 md:col-span-7 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">Nama Dosen *</label>
                                 <Dropdown v-model="d.dosen_id" :options="dosenList" optionLabel="nama_dosen"
@@ -372,16 +398,20 @@ async function deleteData() {
                             </div>
                             <div class="col-span-12 md:col-span-5 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">Peran *</label>
-                                <Dropdown v-model="d.peran" :options="['Koordinator', 'Anggota']" placeholder="Peran"
-                                    fluid />
+                                <Dropdown v-model="d.peran" :options="['Koordinator', 'Anggota']"
+                                    placeholder="Pilih Peran" fluid />
                             </div>
-                            <div class="col-span-6 flex flex-col gap-2">
+
+                            <!-- SKS & Rencana Tatap Muka -->
+                            <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">SKS Substansi</label>
-                                <InputNumber v-model="d.sks_substansi_total" :min="0" :max="6" fluid />
+                                <InputNumber v-model="d.sks_substansi_total" :min="0" :max="6" showButtons
+                                    buttonLayout="horizontal" fluid />
                             </div>
-                            <div class="col-span-6 flex flex-col gap-2">
+                            <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">Rencana Tatap Muka</label>
-                                <InputNumber v-model="d.rencana_tatap_muka" :min="0" :max="32" fluid />
+                                <InputNumber v-model="d.rencana_tatap_muka" :min="0" :max="32" showButtons
+                                    buttonLayout="horizontal" fluid />
                             </div>
                         </div>
                     </div>
@@ -390,8 +420,10 @@ async function deleteData() {
 
             <template #footer>
                 <div class="flex justify-end gap-3 mt-4">
-                    <Button label="Batal" icon="pi pi-times" text severity="success" @click="dialog = false" />
-                    <Button label="Simpan Perubahan" icon="pi pi-check" severity="success" @click="saveData" />
+                    <Button label="Batal" icon="pi pi-times" text severity="success" @click="dialog = false"
+                        class="font-bold" />
+                    <Button label="Simpan Perubahan" icon="pi pi-check" severity="success" @click="saveData"
+                        class="font-bold" />
                 </div>
             </template>
         </Dialog>
@@ -416,7 +448,8 @@ async function deleteData() {
         <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="jadwal">Hapus jadwal <b>{{ jadwal.nama_mk }}</b> kelas <b>{{ jadwal.kelas }}</b>?</span>
+                <span v-if="jadwal">Yakin ingin menghapus jadwal <b>{{ jadwal.nama_mk }}</b> kelas <b>{{ jadwal.kelas
+                        }}</b>?</span>
             </div>
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="deleteDialog = false" />
@@ -431,5 +464,9 @@ async function deleteData() {
 <style scoped>
 :deep(.p-dialog-footer) {
     padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+:deep(.p-inputnumber-input) {
+    text-align: center;
 }
 </style>
