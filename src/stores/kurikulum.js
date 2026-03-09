@@ -50,6 +50,30 @@ export const useKurikulumStore = defineStore('kurikulum', {
         async removeSubject(kurikulumId, mkId) {
             await apiClient.delete(`/kurikulum/${kurikulumId}/matakuliah/${mkId}`);
             await this.fetchSubjects(kurikulumId);
+        },
+
+        // --- Fitur Import Mapping Baru ---
+        async importMapping(formData) {
+            this.isLoading = true;
+            try {
+                const response = await apiClient.post('/kurikulum/mapping/import', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                return response.data;
+            } finally {
+                this.isLoading = false;
+            }
+        },
+        async downloadMappingTemplate() {
+            try {
+                const response = await apiClient.get('/kurikulum/mapping/template', {
+                    responseType: 'blob'
+                });
+                return response.data;
+            } catch (e) {
+                console.error('Gagal mengunduh template mapping.', e);
+                throw new Error('Gagal mengunduh template mapping.');
+            }
         }
     }
 });

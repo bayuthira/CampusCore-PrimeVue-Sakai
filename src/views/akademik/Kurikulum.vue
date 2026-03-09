@@ -19,10 +19,13 @@ const { mataKuliahList: allMkList } = storeToRefs(mkStore);
 const dialog = ref(false);
 const mappingDialog = ref(false);
 const deleteDialog = ref(false);
+const importResultDialog = ref(false);
 const data = ref({});
 const selectedKurikulum = ref(null);
 const submitted = ref(false);
 const mkToAdd = ref(null);
+const fileInput = ref(null);
+const importResult = ref(null);
 
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
@@ -34,6 +37,7 @@ onMounted(() => {
     mkStore.fetchMataKuliah();
 });
 
+// --- Master Kurikulum ---
 function openNew() {
     data.value = {
         is_active: true,
@@ -84,7 +88,52 @@ async function deleteData() {
     }
 }
 
-// --- Mapping Mata Kuliah ---
+// --- Fitur Import & Template Mapping Baru ---
+function triggerFileInput() {
+    fileInput.value.click();
+}
+
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const result = await store.importMapping(formData);
+        importResult.value = result;
+        importResultDialog.value = true;
+    } catch (error) {
+        // Fallback struktur jika error tidak mengikuti format mapping
+        importResult.value = error.response?.data || {
+            message: 'Gagal melakukan import',
+            success_count: 0,
+            failed_count: 1,
+            errors: [error.message]
+        };
+        importResultDialog.value = true;
+    }
+    event.target.value = ''; // Reset input
+}
+
+async function downloadMappingTemplate() {
+    try {
+        const blob = await store.downloadMappingTemplate();
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'template_mapping_kurikulum.csv');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal mengunduh template mapping', life: 3000 });
+    }
+}
+
+// --- Mapping Mata Kuliah Manual ---
 async function openMapping(row) {
     selectedKurikulum.value = row;
     mkToAdd.value = null;
@@ -130,7 +179,13 @@ const availableMkOptions = computed(() => {
     <div class="card shadow-sm border-0">
         <Toolbar class="mb-6">
             <template #start>
-                <Button label="Tambah Kurikulum" icon="pi pi-plus" severity="primary" @click="openNew" />
+                <Button label="Tambah Kurikulum" icon="pi pi-plus" severity="primary" class="mr-2" @click="openNew" />
+                <!-- Tombol Baru: Import & Template -->
+                <Button label="Import Mapping" icon="pi pi-upload" severity="secondary" class="mr-2"
+                    @click="triggerFileInput" />
+                <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" accept=".csv" />
+                <Button label="Unduh Template Mapping" icon="pi pi-download" severity="secondary"
+                    @click="downloadMappingTemplate" />
             </template>
         </Toolbar>
 
@@ -172,7 +227,6 @@ const availableMkOptions = computed(() => {
     <Dialog v-model:visible="dialog" :style="{ width: '600px' }" header="Detail Kurikulum" :modal="true"
         class="p-fluid">
         <div class="flex flex-col gap-4 mt-2">
-            <!-- Baris 1: Nama & Semester Mulai -->
             <div class="grid grid-cols-12 gap-4">
                 <div class="col-span-12 md:col-span-8 flex flex-col gap-2">
                     <label for="nama" class="font-bold text-sm text-gray-600">Nama Kurikulum *</label>
@@ -191,7 +245,6 @@ const availableMkOptions = computed(() => {
                     optionValue="id" placeholder="Pilih Program Studi" filter :invalid="submitted && !data.prodi_id" />
             </div>
 
-            <!-- Section Target SKS -->
             <div class="p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <div class="font-bold text-primary text-sm mb-3 border-b pb-2">Target SKS Lulus</div>
                 <div class="grid grid-cols-3 gap-4">
@@ -210,7 +263,6 @@ const availableMkOptions = computed(() => {
                 </div>
             </div>
 
-            <!-- Perbaikan Baris Tahun Mulai & ID Feeder agar tidak overlap -->
             <div class="grid grid-cols-12 gap-4">
                 <div class="col-span-12 md:col-span-4 flex flex-col gap-2">
                     <label for="tahun" class="font-bold text-sm text-gray-600">Tahun Mulai *</label>
@@ -282,6 +334,58 @@ const availableMkOptions = computed(() => {
         </div>
         <template #footer>
             <Button label="Tutup" icon="pi pi-times" text severity="success" @click="mappingDialog = false" />
+        </template>
+    </Dialog>
+
+    <!-- Dialog Hasil Import (Perbaikan Logic Result) -->
+    <Dialog v-model:visible="importResultDialog" :style="{ width: '500px' }" header="Hasil Import Mapping"
+        :modal="true">
+        <div v-if="importResult">
+            <!-- Alert Status -->
+            <Message v-if="importResult.failed_count === 0" severity="success" :closable="false">
+                {{ importResult.message || 'Proses Import Berhasil' }}
+            </Message>
+            <Message v-else-if="importResult.success_count > 0" severity="warn" :closable="false">
+                Proses import selesai dengan beberapa kesalahan.
+            </Message>
+            <Message v-else severity="error" :closable="false">
+                {{ importResult.message || 'Gagal melakukan import' }}
+            </Message>
+
+            <!-- Statistik -->
+            <div class="mt-4 p-3 bg-gray-50 rounded border border-gray-100">
+                <div class="flex items-center gap-3 mb-3">
+                    <i class="pi pi-file-import text-primary text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-500 font-bold uppercase">Total Baris</div>
+                        <div class="text-lg font-bold text-gray-800">
+                            {{ (importResult.success_count || 0) + (importResult.failed_count || 0) }} Baris
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <i class="pi pi-check-circle text-green-500 text-xl"></i>
+                    <div>
+                        <div class="text-sm text-gray-500 font-bold uppercase">Berhasil Disimpan</div>
+                        <div class="text-lg font-bold text-green-600">
+                            {{ importResult.success_count }} Baris
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List Error -->
+            <div v-if="importResult.errors && importResult.errors.length > 0" class="mt-4">
+                <strong class="block mb-2 text-red-600 text-sm font-bold">Detail Kesalahan ({{ importResult.failed_count
+                    }}):</strong>
+                <ul
+                    class="list-disc pl-5 m-0 bg-red-50 border border-red-100 text-red-700 p-3 rounded-md text-xs max-h-40 overflow-auto">
+                    <li v-for="(err, index) in importResult.errors" :key="index" class="mb-1 last:mb-0">{{ err }}</li>
+                </ul>
+            </div>
+        </div>
+        <template #footer>
+            <Button label="Tutup" icon="pi pi-check" @click="importResultDialog = false" severity="success" />
         </template>
     </Dialog>
 
