@@ -33,19 +33,21 @@ const fullMenu = [
     },
     {
         label: 'Akademik',
-        roles: ['DOSEN', 'MAHASISWA'],
+        roles: ['DOSEN', 'MAHASISWA', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK'],
         items: [
+            { label: 'Rombongan Belajar', icon: 'pi pi-fw pi-th-large', to: '/akademik/rombel', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] },
+            { label: 'Dosen Pembimbing', icon: 'pi pi-fw pi-users', to: '/akademik/pengaturan-dosen-pa', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'KAPRODI'] },
             {
                 label: 'KRS Mahasiswa',
                 icon: 'pi pi-fw pi-file-edit',
                 to: '/akademik/krs-mahasiswa',
-                roles: ['MAHASISWA'] // Hanya untuk Mahasiswa
+                roles: ['MAHASISWA']
             },
             {
                 label: 'Persetujuan KRS',
                 icon: 'pi pi-fw pi-check-square',
                 to: '/akademik/persetujuan-krs',
-                roles: ['DOSEN'] // Untuk Dosen PA dan Admin
+                roles: ['DOSEN']
             }
         ]
     },

@@ -109,6 +109,12 @@ const router = createRouter({
                     }
                 },
                 {
+                    path: '/akademik/rombel',
+                    name: 'manajemen-rombel',
+                    component: () => import('@/views/akademik/Rombel.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'], title: 'Manajemen Rombel' }
+                },
+                {
                     path: '/fasilitas/jadwal-ruangan',
                     name: 'jadwal-ruangan',
                     component: () => import('@/views/fasilitas/JadwalRuangan.vue'),
