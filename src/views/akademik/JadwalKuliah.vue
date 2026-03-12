@@ -111,8 +111,8 @@ function formatTimeToOffset(date) {
     const m = String(d.getMinutes()).padStart(2, '0');
     const tzOffset = -d.getTimezoneOffset();
     const sign = tzOffset >= 0 ? '+' : '-';
-    const offH = String(Math.floor(Math.abs(timezoneOffset) / 60)).padStart(2, '0');
-    const offM = String(Math.abs(timezoneOffset) % 60).padStart(2, '0');
+    const offH = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
+    const offM = String(Math.abs(tzOffset) % 60).padStart(2, '0');
     return `${h}:${m}${sign}${offH}:${offM}`;
 }
 
@@ -130,7 +130,7 @@ async function saveData() {
             jam_selesai: formatTimeToOffset(jadwal.value.jam_selesai),
             dosen_pengampu: jadwal.value.dosen_pengampu.map(d => ({
                 ...d,
-                dosen_id: d.dosen_id.id || d.dosen_id
+                dosen_id: d.dosen_id?.id || d.dosen_id
             }))
         };
 
@@ -277,7 +277,7 @@ async function deleteData() {
             <Column field="hari" header="Hari" sortable></Column>
             <Column header="Waktu">
                 <template #body="slotProps">
-                    {{ slotProps.data.jam_mulai.substring(0, 5) }} - {{ slotProps.data.jam_selesai.substring(0, 5) }}
+                    {{ slotProps.data.jam_mulai?.substring(0, 5) }} - {{ slotProps.data.jam_selesai?.substring(0, 5) }}
                 </template>
             </Column>
             <Column field="nama_ruangan" header="Ruangan" sortable>
@@ -290,7 +290,7 @@ async function deleteData() {
                         <li v-for="d in slotProps.data.dosen_pengampu" :key="d.dosen_id" class="text-xs mb-1">
                             <i v-if="d.peran === 'Koordinator'" class="pi pi-star-fill text-yellow-500 mr-1"
                                 v-tooltip="'Koordinator'"></i>
-                            {{ d.nama_dosen }}
+                            {{ d.nama_dosen }} <span class="text-gray-400">({{ d.sks_substansi_total }} SKS)</span>
                         </li>
                     </ul>
                 </template>
@@ -317,7 +317,7 @@ async function deleteData() {
             </Column>
         </DataTable>
 
-        <!-- Modal Detail Jadwal (Rapi Sesuai image_57d15f.png) -->
+        <!-- Modal Detail Jadwal -->
         <Dialog v-model:visible="dialog" :style="{ width: '750px' }" header="Detail Jadwal Perkuliahan" :modal="true"
             class="p-fluid">
             <div class="flex flex-col gap-5 mt-2">
@@ -331,7 +331,6 @@ async function deleteData() {
                     </div>
                     <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                         <label class="font-bold text-sm text-gray-600">Mata Kuliah *</label>
-                        <!-- PERBAIKAN: Menambahkan Template #option untuk menampilkan Kode dan SKS -->
                         <Dropdown v-model="jadwal.matakuliah_id" :options="mataKuliahList" optionLabel="nama_mk"
                             optionValue="id" placeholder="Cari Mata Kuliah" filter
                             :filterFields="['kode_mk', 'nama_mk']" :invalid="submitted && !jadwal.matakuliah_id">
@@ -384,13 +383,11 @@ async function deleteData() {
 
                     <div v-for="(d, index) in jadwal.dosen_pengampu" :key="index"
                         class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4 relative shadow-sm">
-                        <!-- Tombol Hapus Dosen -->
                         <Button icon="pi pi-times" severity="danger" text rounded size="small"
                             class="absolute top-1 right-1" @click="removeDosen(index)"
                             v-if="jadwal.dosen_pengampu.length > 1" />
 
                         <div class="grid grid-cols-12 gap-4">
-                            <!-- Nama Dosen & Peran -->
                             <div class="col-span-12 md:col-span-7 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">Nama Dosen *</label>
                                 <Dropdown v-model="d.dosen_id" :options="dosenList" optionLabel="nama_dosen"
@@ -402,11 +399,11 @@ async function deleteData() {
                                     placeholder="Pilih Peran" fluid />
                             </div>
 
-                            <!-- SKS & Rencana Tatap Muka -->
+                            <!-- PERBAIKAN: SKS Substansi mendukung desimal -->
                             <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">SKS Substansi</label>
-                                <InputNumber v-model="d.sks_substansi_total" :min="0" :max="6" showButtons
-                                    buttonLayout="horizontal" fluid />
+                                <InputNumber v-model="d.sks_substansi_total" :min="0" :max="9" :minFractionDigits="1"
+                                    :maxFractionDigits="2" showButtons buttonLayout="horizontal" fluid />
                             </div>
                             <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">Rencana Tatap Muka</label>
@@ -439,7 +436,7 @@ async function deleteData() {
                     tersebut.</small>
             </div>
             <template #footer>
-                <Button label="Batal" text severity="success" @click="plotDialog = false" />
+                <Button label="Batal" icon="pi pi-times" text severity="success" @click="plotDialog = false" />
                 <Button label="Simpan Plot" icon="pi pi-check" severity="success" @click="savePlot" />
             </template>
         </Dialog>
