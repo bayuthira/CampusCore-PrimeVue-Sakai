@@ -109,37 +109,17 @@ const penempatanData = ref({});
 const penempatanSubmitted = ref(false);
 const isPenempatanNew = computed(() => !penempatanData.value.id);
 
-// Opsi untuk dropdown
-const jenisKelaminOptions = ref([
-    { label: 'Laki-laki', value: 'L' },
-    { label: 'Perempuan', value: 'P' }
-]);
+// Opsi dropdown
+const jenisKelaminOptions = ref([{ label: 'Laki-laki', value: 'L' }, { label: 'Perempuan', value: 'P' }]);
 const statusNikahOptions = ref(['Menikah', 'Belum Menikah', 'Cerai Hidup', 'Cerai Mati']);
-const kategoriPegawaiOptions = ref(['Tenaga Pendidik', 'Tenaga Kependidikan']);
 const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
+const kategoriPegawaiOptions = ref(['Tenaga Pendidik', 'Tenaga Kependidikan']);
+const kewarganegaraanOptions = ref([{ label: 'Indonesia (ID)', value: 'ID' }, { label: 'Asing', value: 'Foreign' }]);
+const ikatanKerjaOptions = ref([{ label: 'Dosen Tetap (A)', value: 'A' }, { label: 'Dosen Dpk (B)', value: 'B' }, { label: 'Dosen LB (C)', value: 'C' }]);
 const kategoriSertifikatOptions = ref(['Pelatihan', 'BIMTEK', 'Seminar', 'Workshop', 'Rekognisi Dosen']);
 const tingkatSertifikatOptions = ref(['Lokal', 'Nasional', 'Internasional']);
 const jabatanAkademikOptions = ref(['Asisten Ahli', 'Lektor', 'Lektor Kepala', 'Guru Besar']);
-const pangkatGolonganOptions = ref([
-    'Penata Muda / III.a',
-    'Penata Muda Tk.I / III.b',
-    'Penata / III.c',
-    'Penata Tk. I / III.d',
-    'Pembina / IV.a',
-    'Pembina Tk. I / IV.b',
-    'Pembina Utama Muda / IV.c',
-    'Pembina Utama Madya / IV.d',
-    'Pembina Utama / IV.e'
-]);
-const kewarganegaraanOptions = ref([
-    { label: 'Indonesia (ID)', value: 'ID' },
-    { label: 'Asing', value: 'Foreign' }
-]);
-const ikatanKerjaOptions = ref([
-    { label: 'Dosen Tetap (A)', value: 'A' },
-    { label: 'Dosen Dpk (B)', value: 'B' },
-    { label: 'Dosen LB (C)', value: 'C' }
-]);
+const pangkatGolonganOptions = ref(['Penata Muda / III.a', 'Penata Muda Tk.I / III.b', 'Penata / III.c', 'Penata Tk. I / III.d', 'Pembina / IV.a', 'Pembina Tk. I / IV.b', 'Pembina Utama Muda / IV.c', 'Pembina Utama Madya / IV.d', 'Pembina Utama / IV.e']);
 
 const computedKategoriOptions = computed(() => {
     if (selectedRecordType.value === 'riwayat-sk') return ['SK', 'Lainnya'];
@@ -165,12 +145,7 @@ function formatDate(date) {
 
 // --- CRUD Functions ---
 function openNew() {
-    data.value = {
-        is_active: true,
-        kewarganegaraan: 'ID',
-        kategori_pegawai: 'Tenaga Kependidikan',
-        ikatan_kerja: 'A'
-    };
+    data.value = { is_active: true, kewarganegaraan: 'ID', kategori_pegawai: 'Tenaga Kependidikan', ikatan_kerja: 'A' };
     submitted.value = false;
     dialog.value = true;
 }
@@ -186,11 +161,6 @@ async function saveData() {
         toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'NIK dan Nama Lengkap wajib diisi.', life: 3000 });
         return;
     }
-    if (data.value.kategori_pegawai === 'Tenaga Pendidik' && (!data.value.nidn || !data.value.prodi_id)) {
-        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Untuk Tenaga Pendidik, NIDN dan Prodi wajib diisi.', life: 3000 });
-        return;
-    }
-
     try {
         const payload = {
             ...data.value,
@@ -198,17 +168,12 @@ async function saveData() {
             tanggal_masuk: formatDate(data.value.tanggal_masuk),
             tanggal_pensiun: formatDate(data.value.tanggal_pensiun)
         };
-
-        if (typeof payload.jenis_kelamin === 'object' && payload.jenis_kelamin !== null) {
-            payload.jenis_kelamin = payload.jenis_kelamin.value;
-        }
-
         if (data.value.id) {
             await store.update(data.value.id, payload);
             toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai Diperbarui', life: 3000 });
         } else {
             await store.create(payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pegawai Baru Berhasil Dibuat', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pegawai Baru Dibuat', life: 3000 });
         }
         dialog.value = false;
         data.value = {};
@@ -237,7 +202,6 @@ async function deleteData() {
     try {
         await store.delete(data.value.id);
         deleteDialog.value = false;
-        data.value = {};
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai Dihapus', life: 3000 });
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
@@ -269,8 +233,8 @@ async function openPendidikanList(pegawai) {
     try {
         await pendidikanStore.fetchByPegawai(pegawai.id);
         pendidikanListDialog.value = true;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat pendidikan.', life: 3000 });
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat pendidikan.', life: 3000 });
     }
 }
 
@@ -295,11 +259,8 @@ async function savePendidikan() {
     pendidikanSubmitted.value = true;
     if (!pendidikanData.value.jenjang || !pendidikanData.value.institusi || !pendidikanData.value.tahun_lulus) return;
     try {
-        if (isPendidikanNew.value) {
-            await pendidikanStore.create(selectedPegawai.value.id, pendidikanData.value);
-        } else {
-            await pendidikanStore.update(pendidikanData.value.id, pendidikanData.value);
-        }
+        if (isPendidikanNew.value) await pendidikanStore.create(selectedPegawai.value.id, pendidikanData.value);
+        else await pendidikanStore.update(pendidikanData.value.id, pendidikanData.value);
         await pendidikanStore.fetchByPegawai(selectedPegawai.value.id);
         pendidikanFormDialog.value = false;
     } catch (e) {
@@ -354,14 +315,11 @@ async function saveRiwayatSk() {
     if (!riwayatSkData.value.nomor_sk || !riwayatSkData.value.tanggal_sk) return;
     try {
         const payload = { ...riwayatSkData.value, tanggal_sk: formatDate(riwayatSkData.value.tanggal_sk) };
-        if (isRiwayatSkNew.value) {
-            await riwayatSkStore.create(selectedPegawai.value.id, payload);
-        } else {
-            await riwayatSkStore.update(riwayatSkData.value.id, payload);
-        }
+        if (isRiwayatSkNew.value) await riwayatSkStore.create(selectedPegawai.value.id, payload);
+        else await riwayatSkStore.update(riwayatSkData.value.id, payload);
         await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id);
         riwayatSkFormDialog.value = false;
-    } catch (error) {
+    } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan riwayat SK', life: 3000 });
     }
 }
@@ -409,8 +367,8 @@ async function handleUploadDokumen() {
         await dokumenStore.upload(selectedRecordType.value, selectedRecord.value.id, formData);
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dokumen berhasil diupload', life: 3000 });
         fileToUpload.value = null;
-        uploadKategori.value = null;
         if (uploadRef.value) uploadRef.value.clear();
+        await dokumenStore.fetchList(selectedRecordType.value, selectedRecord.value.id);
     } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal upload dokumen', life: 3000 });
     }
@@ -517,11 +475,8 @@ async function saveSertifikat() {
     if (!sertifikatData.value.jenis_sertifikat || !sertifikatData.value.judul_sertifikat || !sertifikatData.value.tanggal_pelaksanaan) return;
     try {
         const payload = { ...sertifikatData.value, tanggal_pelaksanaan: formatDate(sertifikatData.value.tanggal_pelaksanaan) };
-        if (isSertifikatNew.value) {
-            await sertifikatStore.create(selectedPegawai.value.id, payload);
-        } else {
-            await sertifikatStore.update(sertifikatData.value.id, payload);
-        }
+        if (isSertifikatNew.value) await sertifikatStore.create(selectedPegawai.value.id, payload);
+        else await sertifikatStore.update(sertifikatData.value.id, payload);
         await sertifikatStore.fetchByPegawai(selectedPegawai.value.id);
         sertifikatFormDialog.value = false;
     } catch (e) {
@@ -571,14 +526,11 @@ async function saveJad() {
     if (!jadData.value.jabatan_akademik || !jadData.value.pangkat_golongan || !jadData.value.nomor_sk || !jadData.value.tmt) return;
     try {
         const payload = { ...jadData.value, tmt: formatDate(jadData.value.tmt) };
-        if (isJadNew.value) {
-            await karirDosenStore.createJad(selectedPegawai.value.id, payload);
-        } else {
-            await karirDosenStore.updateJad(jadData.value.id, payload);
-        }
+        if (isJadNew.value) await karirDosenStore.createJad(selectedPegawai.value.id, payload);
+        else await karirDosenStore.updateJad(jadData.value.id, payload);
         await karirDosenStore.fetchJad(selectedPegawai.value.id);
         jadFormDialog.value = false;
-    } catch (e) {
+    } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan JAD', life: 3000 });
     }
 }
@@ -593,8 +545,8 @@ async function deleteJad() {
         await karirDosenStore.deleteJad(jadData.value.id);
         await karirDosenStore.fetchJad(selectedPegawai.value.id);
         deleteJadDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus JAD', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
 
@@ -615,14 +567,11 @@ async function saveSerdos() {
     if (!serdosData.value.nomor_sertifikat || !serdosData.value.tanggal_terbit) return;
     try {
         const payload = { ...serdosData.value, tanggal_terbit: formatDate(serdosData.value.tanggal_terbit) };
-        if (isSerdosNew.value) {
-            await karirDosenStore.createSerdos(selectedPegawai.value.id, payload);
-        } else {
-            await karirDosenStore.updateSerdos(serdosData.value.id, payload);
-        }
+        if (isSerdosNew.value) await karirDosenStore.createSerdos(selectedPegawai.value.id, payload);
+        else await karirDosenStore.updateSerdos(serdosData.value.id, payload);
         await karirDosenStore.fetchSerdos(selectedPegawai.value.id);
         serdosFormDialog.value = false;
-    } catch (e) {
+    } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan SERDOS', life: 3000 });
     }
 }
@@ -637,8 +586,8 @@ async function deleteSerdos() {
         await karirDosenStore.deleteSerdos(serdosData.value.id);
         await karirDosenStore.fetchSerdos(selectedPegawai.value.id);
         deleteSerdosDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus SERDOS', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
 
@@ -674,11 +623,8 @@ async function savePenempatan() {
     if (!penempatanData.value.unit_kerja_id || !penempatanData.value.jabatan || !penempatanData.value.nomor_sk || !penempatanData.value.tanggal_mulai) return;
     try {
         const payload = { ...penempatanData.value, tanggal_mulai: formatDate(penempatanData.value.tanggal_mulai) };
-        if (isPenempatanNew.value) {
-            await penempatanStore.create(selectedPegawai.value.id, payload);
-        } else {
-            await penempatanStore.update(penempatanData.value.id, payload);
-        }
+        if (isPenempatanNew.value) await penempatanStore.create(selectedPegawai.value.id, payload);
+        else await penempatanStore.update(penempatanData.value.id, payload);
         await penempatanStore.fetchByPegawai(selectedPegawai.value.id);
         penempatanFormDialog.value = false;
     } catch (e) {
@@ -772,11 +718,20 @@ async function deletePenempatan() {
             <TabView>
                 <TabPanel header="Identitas Dasar">
                     <div class="grid grid-cols-12 gap-4 mt-2">
-                        <div class="col-span-12 md:col-span-6">
+                        <div class="col-span-12 md:col-span-4">
                             <label class="font-bold block mb-2 text-gray-600">NIK *</label>
                             <InputText v-model.trim="data.nik" required :invalid="submitted && !data.nik" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
+                        <div class="col-span-12 md:col-span-4">
+                            <label class="font-bold block mb-2 text-gray-600">NUPTK (Opsional)</label>
+                            <InputText v-model.trim="data.nuptk" placeholder="16 Digit NUPTK" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4">
+                            <label class="font-bold block mb-2 text-gray-600">Kewarganegaraan</label>
+                            <Dropdown v-model="data.kewarganegaraan" :options="kewarganegaraanOptions"
+                                optionLabel="label" optionValue="value" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-12">
                             <label class="font-bold block mb-2 text-gray-600">Nama Lengkap *</label>
                             <InputText v-model.trim="data.nama_lengkap" required
                                 :invalid="submitted && !data.nama_lengkap" fluid />
@@ -802,22 +757,9 @@ async function deletePenempatan() {
                             <label class="font-bold block mb-2 text-gray-600">Tanggal Lahir</label>
                             <Calendar v-model="data.tanggal_lahir" dateFormat="yy-mm-dd" />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
+                        <div class="col-span-12 md:col-span-12">
                             <label class="font-bold block mb-2 text-gray-600">Nama Ibu Kandung *</label>
                             <InputText v-model.trim="data.nama_ibu_kandung" placeholder="Sesuai Akte" fluid />
-                        </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Kewarganegaraan</label>
-                            <Dropdown v-model="data.kewarganegaraan" :options="kewarganegaraanOptions"
-                                optionLabel="label" optionValue="value" fluid />
-                        </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Agama</label>
-                            <InputText v-model.trim="data.agama" fluid />
-                        </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Golongan Darah</label>
-                            <InputText v-model.trim="data.gol_darah" fluid />
                         </div>
                     </div>
                 </TabPanel>
@@ -832,15 +774,16 @@ async function deletePenempatan() {
                             <label class="font-bold block mb-2 text-gray-600">Dusun</label>
                             <InputText v-model.trim="data.dusun" fluid />
                         </div>
-                        <!-- PERBAIKAN: Spans disesuaikan agar tidak overlap -->
-                        <div class="col-span-12 md:col-span-3">
+                        <!-- PERBAIKAN: Spans disesuaikan dari 3 menjadi 4 agar tidak overlap -->
+                        <div class="col-span-12 md:col-span-4">
                             <label class="font-bold block mb-2 text-gray-600">RT / RW</label>
                             <div class="flex gap-2">
                                 <InputText v-model.trim="data.rt" placeholder="RT" fluid class="flex-1" />
                                 <InputText v-model.trim="data.rw" placeholder="RW" fluid class="flex-1" />
                             </div>
                         </div>
-                        <div class="col-span-12 md:col-span-5">
+                        <!-- PERBAIKAN: Spans disesuaikan dari 5 menjadi 4 agar proporsional -->
+                        <div class="col-span-12 md:col-span-4">
                             <label class="font-bold block mb-2 text-gray-600">Kelurahan</label>
                             <InputText v-model.trim="data.kelurahan" fluid />
                         </div>
@@ -1213,7 +1156,7 @@ async function deletePenempatan() {
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
                 <span v-if="sertifikatData">Hapus riwayat sertifikat <b>{{ sertifikatData.judul_sertifikat
-                        }}</b>?</span>
+                }}</b>?</span>
             </div>
             <template #footer>
                 <Button label="Tidak" text @click="deleteSertifikatDialog = false" />
@@ -1332,7 +1275,8 @@ async function deletePenempatan() {
 
         <Dialog v-model:visible="penempatanListDialog" :style="{ width: '70vw' }"
             :header="`Penempatan: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
-            <Toolbar class="mb-4"><template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
+            <Toolbar class="mb-4">
+                <template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
                         @click="openNewPenempatan" /></template>
             </Toolbar>
             <DataTable :value="penempatanList" :loading="isPenempatanLoading">
@@ -1402,5 +1346,9 @@ async function deletePenempatan() {
 <style scoped>
 :deep(.p-dialog-footer) {
     padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+:deep(.p-tabview-panels) {
+    padding: 1rem 0;
 }
 </style>
