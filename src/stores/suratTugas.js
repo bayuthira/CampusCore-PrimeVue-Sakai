@@ -1,6 +1,15 @@
-// src/stores/suratTugas.js
 import apiClient from '@/services/api';
 import { defineStore } from 'pinia';
+import { useAuthStore } from './auth';
+
+// Menambahkan interceptor untuk request API standar agar token terkirim
+apiClient.interceptors.request.use((config) => {
+    const authStore = useAuthStore();
+    if (authStore.token) {
+        config.headers.Authorization = `Bearer ${authStore.token}`;
+    }
+    return config;
+});
 
 export const useSuratTugasStore = defineStore('suratTugas', {
     state: () => ({
@@ -9,6 +18,26 @@ export const useSuratTugasStore = defineStore('suratTugas', {
         error: null
     }),
     actions: {
+        /**
+         * Mengambil pratinjau SPPD dalam format HTML sebagai Blob.
+         * Ini memungkinkan token dikirim via Header (lewat Axios) daripada Query Param.
+         */
+        async fetchPreviewBlob(id) {
+            try {
+                // REVISI: Pastikan URL mengarah ke /preview
+                const response = await apiClient.get(`/sdm/surat-tugas/${id}/preview`, {
+                    responseType: 'blob'
+                });
+
+                // Membuat URL objek dari blob HTML yang diterima
+                const blob = new Blob([response.data], { type: 'text/html' });
+                return URL.createObjectURL(blob);
+            } catch (e) {
+                console.error('Gagal memuat pratinjau SPPD:', e);
+                throw new Error('Gagal mengambil pratinjau dokumen dari server.');
+            }
+        },
+
         async fetchAll() {
             this.isLoading = true;
             this.error = null;
@@ -21,15 +50,17 @@ export const useSuratTugasStore = defineStore('suratTugas', {
                 this.isLoading = false;
             }
         },
+
         async fetchById(id) {
             this.isLoading = true;
             try {
                 const response = await apiClient.get(`/sdm/surat-tugas/${id}`);
-                return response.data; // Kembalikan data detail
+                return response.data;
             } finally {
                 this.isLoading = false;
             }
         },
+
         async create(data) {
             this.isLoading = true;
             try {
@@ -39,6 +70,7 @@ export const useSuratTugasStore = defineStore('suratTugas', {
                 this.isLoading = false;
             }
         },
+
         async update(id, data) {
             this.isLoading = true;
             try {
@@ -48,6 +80,7 @@ export const useSuratTugasStore = defineStore('suratTugas', {
                 this.isLoading = false;
             }
         },
+
         async delete(id) {
             this.isLoading = true;
             try {
