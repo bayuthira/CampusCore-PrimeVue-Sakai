@@ -159,12 +159,8 @@ async function handlePrint(rowData) {
         const isSPPDDoc = !!detail.nomor_sppd;
 
         if (isSPPDDoc) {
-            // REVISI: Menggunakan Blob agar Token terkirim via Header (Axios)
-            // Dan memastikan URL yang diakses adalah endpoint /preview
             const blobUrl = await store.fetchPreviewBlob(detail.id);
             window.open(blobUrl, '_blank');
-
-            // Bersihkan memori setelah 10 detik
             setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         } else {
             const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [210, 330] });
@@ -210,12 +206,24 @@ function generateSuratTugas(doc, data) {
     doc.text('Menugaskan Kepada:', 20, Y);
     Y += 3;
 
+    // REVISI: Menggabungkan Jabatan dan Unit Kerja di kolom Jabatan
+    const tableBody = (data.daftar_penerima || []).map((p, index) => [
+        index + 1,
+        p.nama_lengkap || '-',
+        `${p.jabatan || ''} ${p.unit_kerja || ''}`.trim() || '-', // Jabatan + Unit Kerja
+        p.peran || '-'
+    ]);
+
     autoTable(doc, {
         head: [['No', 'Nama', 'Jabatan', 'Keterangan Tugas']],
-        body: (data.daftar_penerima || []).map((p, index) => [index + 1, p.nama_lengkap || '-', p.jabatan || '-', p.peran || '-']),
+        body: tableBody,
         startY: Y,
         theme: 'grid',
         headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+        styles: { fontSize: 10 },
+        columnStyles: {
+            2: { cellWidth: 60 } // Memberi ruang lebih lebar untuk kolom Jabatan gabungan
+        },
         didDrawPage: (dt) => { Y = dt.cursor.y + 10; }
     });
 
@@ -232,10 +240,12 @@ function generateSuratTugas(doc, data) {
     const ttdX = pageWidth - 80;
     doc.text('Ditetapkan di: Singaparna-Tasikmalaya', ttdX, Y);
     Y += 7;
-    const tanggalMulaiDate = new Date(data.tanggal_mulai);
-    const tanggalDitetapkan = new Date(tanggalMulaiDate);
+
+    // FIX: Memastikan variabel didefinisikan dengan benar untuk menghindari ReferenceError
+    const tanggalDitetapkan = new Date(data.tanggal_mulai);
     tanggalDitetapkan.setDate(tanggalDitetapkan.getDate() - 1);
     const ditetapkanFormatted = formatDateIndonesianSimple(tanggalDitetapkan.toISOString().split('T')[0]);
+
     doc.text(`Pada Tanggal: ${ditetapkanFormatted}`, ttdX, Y);
     Y += 15;
     doc.text('SEKOLAH TINGGI ILMU KESEHATAN RESPATI', center, Y, { align: 'center' });
@@ -310,7 +320,6 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
             </DataTable>
         </div>
 
-        <!-- Modal Editor -->
         <Dialog v-model:visible="dialog" :style="{ width: '75vw' }"
             :header="isNew ? 'Buat Surat Tugas Baru' : 'Edit Surat Tugas'" :modal="true" maximizable>
             <TabView>
