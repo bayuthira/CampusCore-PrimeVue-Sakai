@@ -2,7 +2,7 @@ import apiClient from '@/services/api';
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth';
 
-// Menambahkan interceptor untuk request API standar agar token terkirim
+// Interceptor untuk memastikan request standar menyertakan token
 apiClient.interceptors.request.use((config) => {
     const authStore = useAuthStore();
     if (authStore.token) {
@@ -20,11 +20,10 @@ export const useSuratTugasStore = defineStore('suratTugas', {
     actions: {
         /**
          * Mengambil pratinjau SPPD dalam format HTML sebagai Blob.
-         * Ini memungkinkan token dikirim via Header (lewat Axios) daripada Query Param.
+         * Menggunakan Axios agar Header Authorization (Token) tetap terkirim secara aman.
          */
         async fetchPreviewBlob(id) {
             try {
-                // REVISI: Pastikan URL mengarah ke /preview
                 const response = await apiClient.get(`/sdm/surat-tugas/${id}/preview`, {
                     responseType: 'blob'
                 });

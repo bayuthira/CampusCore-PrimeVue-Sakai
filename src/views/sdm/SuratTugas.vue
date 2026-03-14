@@ -29,6 +29,14 @@ const filters = ref({
 const isPrinting = ref(false);
 
 const peranPenerimaOptions = ref(['Pelaksana Utama', 'Pengikut']);
+
+// Dropdown Opsi Alasan Perjalanan (Mapping 1-3)
+const alasanOptions = ref([
+    { label: 'Kunjungan / Undangan', value: 1 },
+    { label: 'Tugas Lembaga / Dinas', value: 2 },
+    { label: 'Pelatihan / Seminar / Workshop', value: 3 }
+]);
+
 const isSPPD = ref(false);
 const isNew = computed(() => !data.value.id);
 
@@ -66,8 +74,9 @@ function formatDateIndonesianSimple(dateString) {
 // --- CRUD Functions ---
 function openNew() {
     data.value = {
-        penerima_tugas: [{ pegawai_id: null, peran: null }],
-        tembusan: []
+        penerima_tugas: [{ pegawai_id: null, peran: 'Pelaksana Utama' }],
+        tembusan: [],
+        alasan_perjalanan: 2 // Default: Tugas Lembaga
     };
     isSPPD.value = false;
     submitted.value = false;
@@ -86,7 +95,7 @@ async function editData(dataFromList) {
                 peran: p.peran
             }))
         };
-        isSPPD.value = !!fullData.nomor_sppd || !!fullData.alat_angkut;
+        isSPPD.value = !!fullData.nomor_sppd || !!fullData.alat_angkut || !!fullData.tujuan_kota;
         submitted.value = false;
         dialog.value = true;
     } catch (error) {
@@ -111,7 +120,9 @@ async function saveData() {
             tanggal_mulai: formatDate(data.value.tanggal_mulai),
             tanggal_selesai: formatDate(data.value.tanggal_selesai)
         };
+
         if (!isSPPD.value) {
+            // Null-kan field SPPD jika tidak diaktifkan
             payload.alat_angkut = null;
             payload.tempat_berangkat = null;
             payload.lama_perjalanan = null;
@@ -120,7 +131,10 @@ async function saveData() {
             payload.ppk_pegawai_id = null;
             payload.kpa_pegawai_id = null;
             payload.keterangan_lain = null;
+            payload.tujuan_kota = null;
+            payload.alasan_perjalanan = null;
         }
+
         if (data.value.id) {
             await store.update(data.value.id, payload);
             toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas Diperbarui', life: 3000 });
@@ -206,11 +220,10 @@ function generateSuratTugas(doc, data) {
     doc.text('Menugaskan Kepada:', 20, Y);
     Y += 3;
 
-    // REVISI: Menggabungkan Jabatan dan Unit Kerja di kolom Jabatan
     const tableBody = (data.daftar_penerima || []).map((p, index) => [
         index + 1,
         p.nama_lengkap || '-',
-        `${p.jabatan || ''} ${p.unit_kerja || ''}`.trim() || '-', // Jabatan + Unit Kerja
+        `${p.jabatan || ''} ${p.unit_kerja || ''}`.trim() || '-',
         p.peran || '-'
     ]);
 
@@ -221,9 +234,7 @@ function generateSuratTugas(doc, data) {
         theme: 'grid',
         headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
         styles: { fontSize: 10 },
-        columnStyles: {
-            2: { cellWidth: 60 } // Memberi ruang lebih lebar untuk kolom Jabatan gabungan
-        },
+        columnStyles: { 2: { cellWidth: 60 } },
         didDrawPage: (dt) => { Y = dt.cursor.y + 10; }
     });
 
@@ -241,7 +252,6 @@ function generateSuratTugas(doc, data) {
     doc.text('Ditetapkan di: Singaparna-Tasikmalaya', ttdX, Y);
     Y += 7;
 
-    // FIX: Memastikan variabel didefinisikan dengan benar untuk menghindari ReferenceError
     const tanggalDitetapkan = new Date(data.tanggal_mulai);
     tanggalDitetapkan.setDate(tanggalDitetapkan.getDate() - 1);
     const ditetapkanFormatted = formatDateIndonesianSimple(tanggalDitetapkan.toISOString().split('T')[0]);
@@ -266,7 +276,7 @@ function generateSuratTugas(doc, data) {
     }
 }
 
-function addPenerimaTugas() { data.value.penerima_tugas.push({ pegawai_id: null, peran: null }); }
+function addPenerimaTugas() { data.value.penerima_tugas.push({ pegawai_id: null, peran: 'Pengikut' }); }
 function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1); }
 </script>
 
@@ -327,15 +337,18 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
                     <div class="flex flex-col gap-6 mt-4 p-fluid">
                         <div>
                             <label class="font-bold block mb-2 text-gray-600">Tentang Tugas *</label>
-                            <Textarea v-model.trim="data.dasar_tugas" rows="2" required fluid />
+                            <Textarea v-model.trim="data.dasar_tugas" rows="2" required fluid
+                                placeholder="Dasar surat atau perihal umum" />
                         </div>
                         <div>
                             <label class="font-bold block mb-2 text-gray-600">Tugas *</label>
-                            <Textarea v-model.trim="data.tugas" rows="3" required fluid />
+                            <Textarea v-model.trim="data.tugas" rows="3" required fluid
+                                placeholder="Uraian isi tugas yang harus dilaksanakan" />
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="font-bold block mb-2 text-gray-600">Tempat Tugas</label>
-                                <InputText v-model.trim="data.tempat_tugas" fluid />
+                            <div><label class="font-bold block mb-2 text-gray-600">Tempat Tugas (Detail)</label>
+                                <InputText v-model.trim="data.tempat_tugas" fluid
+                                    placeholder="Misal: Hotel Royal Bogor" />
                             </div>
                             <div><label class="font-bold block mb-2 text-gray-600">Penandatangan *</label>
                                 <Dropdown v-model="data.penandatangan_id" :options="pegawaiList"
@@ -359,7 +372,8 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
                             class="grid grid-cols-12 gap-2 bg-gray-50 p-3 rounded border shadow-inner mb-2">
                             <div class="col-span-12 md:col-span-7">
                                 <Dropdown v-model="penerima.pegawai_id" :options="pegawaiList"
-                                    optionLabel="nama_lengkap" optionValue="id" filter fluid />
+                                    optionLabel="nama_lengkap" optionValue="id" filter fluid
+                                    placeholder="Cari Pegawai" />
                             </div>
                             <div class="col-span-12 md:col-span-4">
                                 <Dropdown v-model="penerima.peran" :options="peranPenerimaOptions" fluid />
@@ -378,40 +392,62 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
                 <TabPanel header="Detail SPPD (Neo Feeder)">
                     <div class="flex items-center mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <ToggleSwitch v-model="isSPPD" />
-                        <label class="ml-3 font-bold text-blue-800">Aktifkan Detail SPPD</label>
+                        <label class="ml-3 font-bold text-blue-800">Aktifkan Detail SPPD (Perjalanan Dinas)</label>
                     </div>
                     <div v-if="isSPPD" class="flex flex-col gap-4 p-fluid">
+                        <!-- BARU: Alasan & Tujuan Kota -->
+                        <div class="grid grid-cols-12 gap-4">
+                            <div class="col-span-12 md:col-span-6">
+                                <label class="font-bold block mb-2 text-gray-600">Alasan Perjalanan *</label>
+                                <Dropdown v-model="data.alasan_perjalanan" :options="alasanOptions" optionLabel="label"
+                                    optionValue="value" placeholder="Pilih Alasan" fluid />
+                            </div>
+                            <div class="col-span-12 md:col-span-6">
+                                <label class="font-bold block mb-2 text-gray-600">Tujuan Kota *</label>
+                                <InputText v-model.trim="data.tujuan_kota" fluid placeholder="Misal: Kota Bogor" />
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div><label class="font-bold block mb-2 text-gray-600">Alat Angkut</label>
-                                <InputText v-model.trim="data.alat_angkut" fluid />
+                                <InputText v-model.trim="data.alat_angkut" fluid
+                                    placeholder="Misal: Kendaraan Dinas / Umum" />
                             </div>
                             <div><label class="font-bold block mb-2 text-gray-600">Tempat Berangkat</label>
-                                <InputText v-model.trim="data.tempat_berangkat" fluid />
+                                <InputText v-model.trim="data.tempat_berangkat" fluid
+                                    placeholder="Misal: Tasikmalaya" />
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div><label class="font-bold block mb-2 text-gray-600">Lama Perjalanan (Hari)</label>
-                                <InputNumber v-model="data.lama_perjalanan" :min="1" />
+                                <InputNumber v-model="data.lama_perjalanan" :min="1" fluid />
                             </div>
-                            <div><label class="font-bold block mb-2 text-gray-600">MAK</label>
-                                <InputText v-model.trim="data.pembebanan_anggaran_mak" fluid />
+                            <div><label class="font-bold block mb-2 text-gray-600">Kode MAK / Anggaran</label>
+                                <InputText v-model.trim="data.pembebanan_anggaran_mak" fluid
+                                    placeholder="Misal: 1.2.3.4" />
                             </div>
                         </div>
-                        <div><label class="font-bold block mb-2 text-gray-600">Instansi Pembebanan</label>
-                            <InputText v-model.trim="data.pembebanan_anggaran_instansi" fluid />
+                        <div><label class="font-bold block mb-2 text-gray-600">Instansi Pembebanan Anggaran</label>
+                            <InputText v-model.trim="data.pembebanan_anggaran_instansi" fluid
+                                placeholder="Misal: STIKes Respati" />
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="font-bold block mb-2 text-gray-600">PPK</label>
+                            <div><label class="font-bold block mb-2 text-gray-600">PPK (Pejabat Pembuat
+                                    Komitmen)</label>
                                 <Dropdown v-model="data.ppk_pegawai_id" :options="pegawaiList"
-                                    optionLabel="nama_lengkap" optionValue="id" filter fluid />
+                                    optionLabel="nama_lengkap" optionValue="id" filter fluid
+                                    placeholder="Cari Pegawai" />
                             </div>
-                            <div><label class="font-bold block mb-2 text-gray-600">KPA</label>
+                            <div><label class="font-bold block mb-2 text-gray-600">KPA (Kuasa Pengguna Anggaran)</label>
                                 <Dropdown v-model="data.kpa_pegawai_id" :options="pegawaiList"
-                                    optionLabel="nama_lengkap" optionValue="id" filter fluid />
+                                    optionLabel="nama_lengkap" optionValue="id" filter fluid
+                                    placeholder="Cari Pegawai" />
                             </div>
                         </div>
                         <div><label class="font-bold block mb-2 text-gray-600">Keterangan Lain</label><Textarea
-                                v-model.trim="data.keterangan_lain" rows="3" fluid /></div>
+                                v-model.trim="data.keterangan_lain" rows="3" fluid
+                                placeholder="Instruksi tambahan jika ada" />
+                        </div>
                     </div>
                 </TabPanel>
             </TabView>
