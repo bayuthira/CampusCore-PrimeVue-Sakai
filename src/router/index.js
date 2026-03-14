@@ -196,7 +196,7 @@ const router = createRouter({
                     path: '/sdm/surat-tugas',
                     name: 'manajemen-surat-tugas',
                     component: () => import('@/views/sdm/SuratTugas.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Surat Tugas' }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Surat Tugas / SPPD' }
                 }
             ]
         },

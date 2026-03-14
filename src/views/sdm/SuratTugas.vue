@@ -137,10 +137,10 @@ async function saveData() {
 
         if (data.value.id) {
             await store.update(data.value.id, payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas Diperbarui', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas / SPPD Diperbarui', life: 3000 });
         } else {
             await store.create(payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas Baru Dibuat', life: 3000 });
+            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas / SPPD Baru Dibuat', life: 3000 });
         }
         dialog.value = false;
     } catch (error) {
@@ -285,7 +285,7 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
         <div class="card shadow-sm border-0">
             <Toolbar class="mb-6">
                 <template #start>
-                    <Button label="Buat Surat Tugas" icon="pi pi-plus" severity="primary" class="mr-2"
+                    <Button label="Buat Surat Tugas / SPPD" icon="pi pi-plus" severity="primary" class="mr-2"
                         @click="openNew" />
                 </template>
             </Toolbar>
@@ -294,7 +294,7 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
                 :filters="filters" stripedRows class="p-datatable-sm">
                 <template #header>
                     <div class="flex flex-wrap gap-2 items-center justify-between">
-                        <h4 class="m-0 font-bold text-gray-700">Manajemen Surat Tugas</h4>
+                        <h4 class="m-0 font-bold text-gray-700">Manajemen Surat Tugas / SPPD</h4>
                         <IconField>
                             <InputIcon> <i class="pi pi-search" /> </InputIcon>
                             <InputText v-model="filters['global'].value" placeholder="Cari..." />
@@ -331,7 +331,7 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
         </div>
 
         <Dialog v-model:visible="dialog" :style="{ width: '75vw' }"
-            :header="isNew ? 'Buat Surat Tugas Baru' : 'Edit Surat Tugas'" :modal="true" maximizable>
+            :header="isNew ? 'Buat Surat Tugas / SPPD Baru' : 'Edit Surat Tugas / SPPD'" :modal="true" maximizable>
             <TabView>
                 <TabPanel header="Info Utama">
                     <div class="flex flex-col gap-6 mt-4 p-fluid">

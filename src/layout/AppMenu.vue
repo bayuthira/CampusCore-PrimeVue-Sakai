@@ -102,7 +102,7 @@ const fullMenu = [
             { label: 'Persetujuan Cuti', icon: 'pi pi-fw pi-check-square', to: '/sdm/persetujuan-cuti', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Persetujuan Ijin', icon: 'pi pi-fw pi-calendar-minus', to: '/sdm/persetujuan-ijin', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Unit Kerja', icon: 'pi pi-fw pi-sitemap', to: '/sdm/unit-kerja', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
-            { label: 'Surat Tugas', icon: 'pi pi-fw pi-file-edit', to: '/sdm/surat-tugas', roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+            { label: 'Surat Tugas / SPPD', icon: 'pi pi-fw pi-file-edit', to: '/sdm/surat-tugas', roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
         ]
     },
     {
