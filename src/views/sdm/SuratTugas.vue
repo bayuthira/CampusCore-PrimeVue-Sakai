@@ -389,7 +389,7 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
                         </div>
                     </div>
                 </TabPanel>
-                <TabPanel header="Detail SPPD (Neo Feeder)">
+                <TabPanel header="Detail SPPD">
                     <div class="flex items-center mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                         <ToggleSwitch v-model="isSPPD" />
                         <label class="ml-3 font-bold text-blue-800">Aktifkan Detail SPPD (Perjalanan Dinas)</label>
