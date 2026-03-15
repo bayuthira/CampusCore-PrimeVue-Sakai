@@ -95,6 +95,7 @@ async function editData(dataFromList) {
                 peran: p.peran
             }))
         };
+        // Menentukan status toggle berdasarkan keberadaan data SPPD
         isSPPD.value = !!fullData.nomor_sppd || !!fullData.alat_angkut || !!fullData.tujuan_kota;
         submitted.value = false;
         dialog.value = true;
@@ -122,7 +123,6 @@ async function saveData() {
         };
 
         if (!isSPPD.value) {
-            // Null-kan field SPPD jika tidak diaktifkan
             payload.alat_angkut = null;
             payload.tempat_berangkat = null;
             payload.lama_perjalanan = null;
@@ -157,7 +157,7 @@ async function deleteData() {
     try {
         await store.delete(data.value.id);
         deleteDialog.value = false;
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas Dihapus', life: 3000 });
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Surat Tugas / SPPD Dihapus', life: 3000 });
     } catch (error) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Terjadi kesalahan saat menghapus', life: 3000 });
     }
@@ -220,6 +220,7 @@ function generateSuratTugas(doc, data) {
     doc.text('Menugaskan Kepada:', 20, Y);
     Y += 3;
 
+    // Menampilkan Jabatan + Unit Kerja
     const tableBody = (data.daftar_penerima || []).map((p, index) => [
         index + 1,
         p.nama_lengkap || '-',
@@ -389,13 +390,13 @@ function removePenerimaTugas(index) { data.value.penerima_tugas.splice(index, 1)
                         </div>
                     </div>
                 </TabPanel>
-                <TabPanel header="Detail SPPD">
+                <TabPanel header="Detail SPPD (Neo Feeder)">
                     <div class="flex items-center mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <ToggleSwitch v-model="isSPPD" />
+                        <!-- PERBAIKAN: Switch SPPD di-disable saat mode Edit (!isNew) -->
+                        <ToggleSwitch v-model="isSPPD" :disabled="!isNew" />
                         <label class="ml-3 font-bold text-blue-800">Aktifkan Detail SPPD (Perjalanan Dinas)</label>
                     </div>
                     <div v-if="isSPPD" class="flex flex-col gap-4 p-fluid">
-                        <!-- BARU: Alasan & Tujuan Kota -->
                         <div class="grid grid-cols-12 gap-4">
                             <div class="col-span-12 md:col-span-6">
                                 <label class="font-bold block mb-2 text-gray-600">Alasan Perjalanan *</label>
