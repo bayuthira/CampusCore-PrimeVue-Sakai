@@ -38,6 +38,10 @@ const { peranDosen } = storeToRefs(lookupStore);
 const dialog = ref(false);
 const deleteDialog = ref(false);
 const plotDialog = ref(false);
+const importResultDialog = ref(false); // Modal hasil import
+const importResult = ref(null);
+const fileInput = ref(null);
+
 const jadwal = ref({});
 const submitted = ref(false);
 const isNew = computed(() => !jadwal.value.id);
@@ -53,6 +57,10 @@ const dt = ref();
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
+
+// Role checking
+const canManage = computed(() => authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_AKADEMIK'].includes(r)));
+const canPlot = computed(() => authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_BAUM'].includes(r)));
 
 onMounted(() => {
     prodiStore.fetchProdi();
@@ -227,6 +235,48 @@ async function deleteData() {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus jadwal', life: 3000 });
     }
 }
+
+// --- Fungsi Import & Download Template Baru ---
+function triggerFileInput() {
+    fileInput.value.click();
+}
+
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const result = await jadwalStore.importFromCSV(formData);
+        importResult.value = result;
+        importResultDialog.value = true;
+        toast.add({ severity: 'info', summary: 'Import Selesai', detail: 'Silakan cek hasil import di layar.', life: 3000 });
+    } catch (error) {
+        const msg = error.response?.data?.error || error.message;
+        toast.add({ severity: 'error', summary: 'Gagal Import', detail: msg, life: 5000 });
+    } finally {
+        event.target.value = ''; // Reset input file
+    }
+}
+
+async function downloadTemplate() {
+    try {
+        const blob = await jadwalStore.downloadTemplateCSV();
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'template_import_jadwal.csv');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Template berhasil diunduh.', life: 3000 });
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.message, life: 3000 });
+    }
+}
 </script>
 
 <template>
@@ -234,7 +284,13 @@ async function deleteData() {
         <Toolbar class="mb-6">
             <template #start>
                 <Button label="Tambah Jadwal" icon="pi pi-plus" severity="primary" class="mr-2" @click="openNew"
-                    v-if="authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_AKADEMIK'].includes(r))" />
+                    v-if="canManage" />
+
+                <!-- Tombol Import & Template Baru -->
+                <Button label="Import Jadwal" icon="pi pi-upload" severity="secondary" class="mr-2"
+                    @click="triggerFileInput" v-if="canManage" />
+                <input type="file" ref="fileInput" @change="handleFileUpload" style="display: none" accept=".csv" />
+                <Button label="Unduh Template" icon="pi pi-download" severity="secondary" @click="downloadTemplate" />
             </template>
             <template #end>
                 <SplitButton label="Ekspor Data" icon="pi pi-download" :model="exportItems" severity="secondary" />
@@ -299,19 +355,14 @@ async function deleteData() {
             <Column :exportable="false" header="Aksi" style="min-width: 12rem">
                 <template #body="slotProps">
                     <div class="flex gap-2">
-                        <Button v-if="authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_BAUM'].includes(r))"
-                            icon="pi pi-map-marker" outlined rounded severity="info"
+                        <Button v-if="canPlot" icon="pi pi-map-marker" outlined rounded severity="info"
                             @click="openPlotDialog(slotProps.data)" v-tooltip.top="'Plot Ruangan'" />
-                        <Button
-                            v-if="slotProps.data.ruangan_id && authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_BAUM'].includes(r))"
-                            icon="pi pi-times-circle" outlined rounded severity="danger"
-                            @click="confirmUnplot(slotProps.data)" v-tooltip.top="'Unplot'" />
-                        <Button v-if="authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_AKADEMIK'].includes(r))"
-                            icon="pi pi-pencil" outlined rounded severity="success" @click="editData(slotProps.data)"
-                            v-tooltip.top="'Ubah'" />
-                        <Button v-if="authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_AKADEMIK'].includes(r))"
-                            icon="pi pi-trash" outlined rounded severity="danger" @click="confirmDelete(slotProps.data)"
-                            v-tooltip.top="'Hapus'" />
+                        <Button v-if="slotProps.data.ruangan_id && canPlot" icon="pi pi-times-circle" outlined rounded
+                            severity="danger" @click="confirmUnplot(slotProps.data)" v-tooltip.top="'Unplot'" />
+                        <Button v-if="canManage" icon="pi pi-pencil" outlined rounded severity="success"
+                            @click="editData(slotProps.data)" v-tooltip.top="'Ubah'" />
+                        <Button v-if="canManage" icon="pi pi-trash" outlined rounded severity="danger"
+                            @click="confirmDelete(slotProps.data)" v-tooltip.top="'Hapus'" />
                     </div>
                 </template>
             </Column>
@@ -321,7 +372,6 @@ async function deleteData() {
         <Dialog v-model:visible="dialog" :style="{ width: '750px' }" header="Detail Jadwal Perkuliahan" :modal="true"
             class="p-fluid">
             <div class="flex flex-col gap-5 mt-2">
-                <!-- Row 1: Tahun Akademik & Mata Kuliah -->
                 <div class="grid grid-cols-12 gap-4">
                     <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                         <label class="font-bold text-sm text-gray-600">Tahun Akademik *</label>
@@ -345,7 +395,6 @@ async function deleteData() {
                     </div>
                 </div>
 
-                <!-- Row 2: Nama Kelas & Hari -->
                 <div class="grid grid-cols-12 gap-4">
                     <div class="col-span-12 md:col-span-4 flex flex-col gap-2">
                         <label class="font-bold text-sm text-gray-600">Nama Kelas *</label>
@@ -359,7 +408,6 @@ async function deleteData() {
                     </div>
                 </div>
 
-                <!-- Row 3: Jam Mulai & Jam Selesai -->
                 <div class="grid grid-cols-12 gap-4">
                     <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                         <label class="font-bold text-sm text-gray-600">Jam Mulai *</label>
@@ -373,7 +421,6 @@ async function deleteData() {
                     </div>
                 </div>
 
-                <!-- Bagian Dosen Pengampu (Team Teaching) -->
                 <div class="mt-2">
                     <div class="flex justify-between items-center border-b border-gray-200 pb-2 mb-4">
                         <span class="font-bold text-success text-base">Dosen Pengampu (Team Teaching)</span>
@@ -399,7 +446,6 @@ async function deleteData() {
                                     placeholder="Pilih Peran" fluid />
                             </div>
 
-                            <!-- PERBAIKAN: SKS Substansi mendukung desimal -->
                             <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                                 <label class="text-xs font-bold text-gray-500">SKS Substansi</label>
                                 <InputNumber v-model="d.sks_substansi_total" :min="0" :max="9" :minFractionDigits="1"
@@ -425,6 +471,51 @@ async function deleteData() {
             </template>
         </Dialog>
 
+        <!-- Dialog Hasil Import Baru -->
+        <Dialog v-model:visible="importResultDialog" :style="{ width: '500px' }" header="Hasil Import Jadwal"
+            :modal="true">
+            <div v-if="importResult">
+                <Message v-if="importResult.status === 'SUKSES'" severity="success" :closable="false">Proses Import
+                    Berhasil
+                </Message>
+                <Message v-else-if="importResult.baris_berhasil_disimpan > 0" severity="warn" :closable="false">Proses
+                    Selesai
+                    dengan Beberapa Kesalahan</Message>
+                <Message v-else severity="error" :closable="false">{{ importResult.status }}</Message>
+
+                <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 shadow-inner">
+                    <div class="flex items-center gap-3 mb-3">
+                        <i class="pi pi-file-import text-primary text-xl"></i>
+                        <div>
+                            <div class="text-xs text-gray-500 font-bold uppercase">Total Baris Dipindai</div>
+                            <div class="text-lg font-bold text-gray-800">{{ importResult.total_baris_dipindai }}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i class="pi pi-check-circle text-green-500 text-xl"></i>
+                        <div>
+                            <div class="text-xs text-gray-500 font-bold uppercase">Berhasil Disimpan</div>
+                            <div class="text-lg font-bold text-green-600">{{ importResult.baris_berhasil_disimpan }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="importResult.detail_error && importResult.detail_error.length > 0" class="mt-4">
+                    <strong class="block mb-2 text-red-600 text-sm font-bold">Detail Kesalahan:</strong>
+                    <ul
+                        class="list-disc pl-5 m-0 bg-red-50 border border-red-100 text-red-700 p-3 rounded-lg text-xs max-h-48 overflow-y-auto">
+                        <li v-for="(err, index) in importResult.detail_error" :key="index" class="mb-1 last:mb-0">{{ err
+                            }}</li>
+                    </ul>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Tutup" icon="pi pi-check" @click="importResultDialog = false" severity="success"
+                    class="font-bold" />
+            </template>
+        </Dialog>
+
         <!-- Plot Ruangan -->
         <Dialog v-model:visible="plotDialog" :style="{ width: '450px' }"
             :header="`Plot Ruangan: ${jadwalUntukPlot.nama_mk}`" :modal="true">
@@ -446,7 +537,7 @@ async function deleteData() {
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
                 <span v-if="jadwal">Yakin ingin menghapus jadwal <b>{{ jadwal.nama_mk }}</b> kelas <b>{{ jadwal.kelas
-                        }}</b>?</span>
+                }}</b>?</span>
             </div>
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="deleteDialog = false" />

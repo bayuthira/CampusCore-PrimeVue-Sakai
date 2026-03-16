@@ -78,6 +78,30 @@ export const useJadwalKuliahStore = defineStore('jadwalKuliah', {
             } finally {
                 this.isLoading = false;
             }
+        },
+
+        // --- Fitur Import & Template CSV Baru ---
+        async downloadTemplateCSV() {
+            try {
+                const response = await apiClient.get('/akademik/jadwal-kuliah/template-csv', {
+                    responseType: 'blob'
+                });
+                return response.data;
+            } catch (e) {
+                throw new Error('Gagal mengunduh template CSV.');
+            }
+        },
+        async importFromCSV(formData) {
+            this.isLoading = true;
+            try {
+                const response = await apiClient.post('/akademik/jadwal-kuliah/import-csv', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                await this.fetchAll();
+                return response.data;
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });
