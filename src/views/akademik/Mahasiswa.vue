@@ -1,4 +1,6 @@
 <script setup>
+import { useDosenStore } from '@/stores/dosen'; // Tambahan untuk list dosen
+import { useDosenPaStore } from '@/stores/dosenPa'; // Tambahan untuk action assign
 import { useMahasiswaStore } from '@/stores/mahasiswa';
 import { useProdiStore } from '@/stores/prodi';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -9,16 +11,23 @@ import { onMounted, ref } from 'vue';
 const toast = useToast();
 const mahasiswaStore = useMahasiswaStore();
 const prodiStore = useProdiStore();
+const dosenStore = useDosenStore();
+const dosenPaStore = useDosenPaStore();
+
 const { mahasiswaList, isLoading } = storeToRefs(mahasiswaStore);
 const { prodiList } = storeToRefs(prodiStore);
+const { dosenList } = storeToRefs(dosenStore);
 
 const mahasiswaDialog = ref(false);
 const deleteMahasiswaDialog = ref(false);
 const importResultDialog = ref(false);
+const assignPaDialog = ref(false); // Dialog Baru
+
 const importResult = ref(null);
 const fileInput = ref(null);
 const mahasiswa = ref({});
 const submitted = ref(false);
+const selectedDosenPaId = ref(null);
 const dt = ref();
 
 const filters = ref({
@@ -30,7 +39,20 @@ const statusOptions = ['Aktif', 'Cuti', 'Lulus', 'Keluar', 'Non-Aktif'];
 onMounted(() => {
     mahasiswaStore.fetchMahasiswa();
     prodiStore.fetchProdi();
+    dosenStore.fetchDosen();
 });
+
+// Helper untuk warna status
+function getStatusSeverity(status) {
+    switch (status) {
+        case 'Aktif': return 'success';
+        case 'Cuti': return 'warn';
+        case 'Lulus': return 'info';
+        case 'Keluar': return 'danger';
+        case 'Non-Aktif': return 'secondary';
+        default: return 'info';
+    }
+}
 
 function openNew() {
     mahasiswa.value = { angkatan: new Date().getFullYear(), status_mahasiswa: 'Aktif' };
@@ -40,13 +62,10 @@ function openNew() {
 
 async function saveMahasiswa() {
     submitted.value = true;
-
-    // Validasi field wajib
     if (!mahasiswa.value.nama_mahasiswa?.trim() || !mahasiswa.value.nim?.trim() || !mahasiswa.value.prodi_id) return;
 
     try {
         if (mahasiswa.value.id) {
-            // Partial Update: Hanya kirim data yang relevan
             const payload = { ...mahasiswa.value };
             delete payload.id;
             delete payload.nama_prodi;
@@ -64,6 +83,32 @@ async function saveMahasiswa() {
     } catch (error) {
         const errMsg = error.response?.data?.error || 'Gagal menyimpan data';
         toast.add({ severity: 'error', summary: 'Gagal', detail: errMsg, life: 4000 });
+    }
+}
+
+// --- Logic Assign Dosen PA (Single) ---
+function openAssignPa(data) {
+    mahasiswa.value = data;
+    selectedDosenPaId.value = data.dosen_pa_id || null;
+    assignPaDialog.value = true;
+}
+
+async function handleSingleAssignPa() {
+    if (!selectedDosenPaId.value) {
+        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'Pilih dosen terlebih dahulu', life: 3000 });
+        return;
+    }
+
+    try {
+        await dosenPaStore.singleAssign({
+            registrasi_id: mahasiswa.value.registrasi_id,
+            dosen_pa_id: selectedDosenPaId.value
+        });
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dosen Pembimbing berhasil diperbarui', life: 3000 });
+        assignPaDialog.value = false;
+        mahasiswaStore.fetchMahasiswa(); // Refresh data list
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menetapkan dosen pembimbing', life: 3000 });
     }
 }
 
@@ -102,6 +147,7 @@ async function handleFileUpload(event) {
         const result = await mahasiswaStore.importFromCSV(formData);
         importResult.value = result;
         importResultDialog.value = true;
+        mahasiswaStore.fetchMahasiswa();
     } catch (error) {
         importResult.value = error.response?.data || { status: 'ERROR', detail_error: [error.message] };
         importResultDialog.value = true;
@@ -152,33 +198,41 @@ async function downloadTemplate() {
                     </IconField>
                 </div>
             </template>
-            <Column field="nim" header="NIM" sortable></Column>
+            <Column field="nim" header="NIM" sortable class="font-mono font-bold text-primary"></Column>
             <Column field="nama_mahasiswa" header="Nama Lengkap" sortable style="min-width: 14rem"></Column>
             <Column field="nama_prodi" header="Program Studi" sortable></Column>
-            <Column field="angkatan" header="Angkatan" sortable></Column>
-            <Column field="status_mahasiswa" header="Status">
+            <Column field="angkatan" header="Angkatan" sortable class="text-center"></Column>
+            <Column field="nama_dosen_pa" header="Dosen PA">
                 <template #body="slotProps">
-                    <Tag :value="slotProps.data.status_mahasiswa"
-                        :severity="slotProps.data.status_mahasiswa === 'Aktif' ? 'success' : 'warn'" />
+                    <span v-if="slotProps.data.nama_dosen_pa" class="text-sm">{{ slotProps.data.nama_dosen_pa }}</span>
+                    <span v-else class="text-xs italic text-gray-400">Belum diatur</span>
                 </template>
             </Column>
-            <Column header="Aksi" :exportable="false" style="min-width: 8rem">
+            <Column field="status_mahasiswa" header="Status" sortable class="text-center">
                 <template #body="slotProps">
-                    <Button icon="pi pi-pencil" outlined rounded severity="info" class="mr-2"
-                        @click="editMahasiswa(slotProps.data)" v-tooltip.top="'Ubah'" />
-                    <Button icon="pi pi-trash" outlined rounded severity="danger"
-                        @click="confirmDeleteMahasiswa(slotProps.data)" v-tooltip.top="'Hapus'" />
+                    <Tag :value="slotProps.data.status_mahasiswa"
+                        :severity="getStatusSeverity(slotProps.data.status_mahasiswa)" />
+                </template>
+            </Column>
+            <Column header="Aksi" :exportable="false" style="min-width: 12rem">
+                <template #body="slotProps">
+                    <div class="flex gap-2">
+                        <Button icon="pi pi-user-edit" outlined rounded severity="success"
+                            @click="openAssignPa(slotProps.data)" v-tooltip.top="'Atur Dosen PA'" />
+                        <Button icon="pi pi-pencil" outlined rounded severity="info"
+                            @click="editMahasiswa(slotProps.data)" v-tooltip.top="'Ubah Profil'" />
+                        <Button icon="pi pi-trash" outlined rounded severity="danger"
+                            @click="confirmDeleteMahasiswa(slotProps.data)" v-tooltip.top="'Hapus'" />
+                    </div>
                 </template>
             </Column>
         </DataTable>
 
-        <!-- Modal Detail Mahasiswa (Sesuai image_465998.png) -->
-        <Dialog v-model:visible="mahasiswaDialog" :style="{ width: '700px' }" header="Detail Data Mahasiswa"
+        <!-- Modal Detail Mahasiswa -->
+        <Dialog v-model:visible="mahasiswaDialog" :style="{ width: '750px' }" header="Detail Data Mahasiswa"
             :modal="true" class="p-fluid">
             <div class="flex flex-col gap-4 mt-2">
-                <!-- Seksi Biodata -->
                 <div class="font-bold text-success border-b pb-2 mb-2">Biodata Dasar</div>
-
                 <div class="grid grid-cols-12 gap-4">
                     <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                         <label for="nim" class="font-bold text-sm text-gray-600">NIM *</label>
@@ -190,47 +244,34 @@ async function downloadTemplate() {
                         <InputText id="nik" v-model.trim="mahasiswa.nik" placeholder="16 Digit NIK" />
                     </div>
                 </div>
-
                 <div class="flex flex-col gap-2">
                     <label for="nama" class="font-bold text-sm text-gray-600">Nama Lengkap *</label>
                     <InputText id="nama" v-model.trim="mahasiswa.nama_mahasiswa" required
-                        placeholder="Nama lengkap sesuai identitas" :invalid="submitted && !mahasiswa.nama_mahasiswa" />
+                        placeholder="Nama lengkap sesuai kartu identitas"
+                        :invalid="submitted && !mahasiswa.nama_mahasiswa" />
                 </div>
 
-                <div class="grid grid-cols-12 gap-4">
-                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
-                        <label for="email" class="font-bold text-sm text-gray-600">Email</label>
-                        <InputText id="email" v-model.trim="mahasiswa.email" placeholder="email@student.ac.id" />
-                    </div>
-                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
-                        <label for="ibu" class="font-bold text-sm text-gray-600">Nama Ibu Kandung</label>
-                        <InputText id="ibu" v-model.trim="mahasiswa.nama_ibu_kandung" placeholder="Nama ibu kandung" />
-                    </div>
-                </div>
-
-                <!-- Seksi Akademik -->
                 <div class="font-bold text-success border-b pb-2 mb-2 mt-4">Rekam Akademik</div>
-
                 <div class="grid grid-cols-12 gap-4">
-                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
+                    <!-- REVISI: Program Studi diletakkan di baris tersendiri agar lega -->
+                    <div class="col-span-12 flex flex-col gap-2">
                         <label for="prodi" class="font-bold text-sm text-gray-600">Program Studi *</label>
                         <Dropdown id="prodi" v-model="mahasiswa.prodi_id" :options="prodiList" optionLabel="nama_prodi"
                             optionValue="id" placeholder="Pilih Program Studi"
                             :invalid="submitted && !mahasiswa.prodi_id" filter />
                     </div>
-                    <!-- Perbaikan Tumpang Tindih pada Angkatan dan Status -->
-                    <div class="col-span-12 md:col-span-3 flex flex-col gap-2">
+                    <!-- REVISI: Angkatan dan Status dibagi rata 6-6 (50%-50%) -->
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                         <label for="angkatan" class="font-bold text-sm text-gray-600">Angkatan</label>
-                        <InputNumber id="angkatan" v-model="mahasiswa.angkatan" :useGrouping="false" placeholder="2024"
-                            fluid />
+                        <InputNumber id="angkatan" v-model="mahasiswa.angkatan" :useGrouping="false"
+                            placeholder="2024" />
                     </div>
-                    <div class="col-span-12 md:col-span-3 flex flex-col gap-2">
+                    <div class="col-span-12 md:col-span-6 flex flex-col gap-2">
                         <label for="status" class="font-bold text-sm text-gray-600">Status</label>
                         <Dropdown id="status" v-model="mahasiswa.status_mahasiswa" :options="statusOptions"
-                            placeholder="Pilih Status" fluid />
+                            placeholder="Pilih Status" />
                     </div>
                 </div>
-
                 <div v-if="!mahasiswa.id" class="flex flex-col gap-2">
                     <label for="pass" class="font-bold text-sm text-gray-600">Kata Sandi Baru *</label>
                     <Password id="pass" v-model="mahasiswa.password" toggleMask :feedback="false"
@@ -245,7 +286,31 @@ async function downloadTemplate() {
             </template>
         </Dialog>
 
-        <!-- Dialog Hasil Import -->
+        <!-- Dialog Assign Dosen PA (Single) -->
+        <Dialog v-model:visible="assignPaDialog" header="Pengaturan Dosen Pembimbing Akademik"
+            :style="{ width: '450px' }" modal class="p-fluid">
+            <div class="flex flex-col gap-4 mt-2">
+                <div class="p-3 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 flex flex-col gap-1">
+                    <span class="text-xs font-bold uppercase opacity-60">Mahasiswa</span>
+                    <div class="font-bold">{{ mahasiswa.nim }} - {{ mahasiswa.nama_mahasiswa }}</div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="font-bold text-sm text-gray-600">Pilih Dosen PA</label>
+                    <Dropdown v-model="selectedDosenPaId" :options="dosenList" optionLabel="nama_dosen" optionValue="id"
+                        placeholder="Cari Nama Dosen" filter autofocus />
+                </div>
+            </div>
+            <template #footer>
+                <div class="flex justify-end gap-2 mt-4">
+                    <Button label="Batal" icon="pi pi-times" text severity="secondary"
+                        @click="assignPaDialog = false" />
+                    <Button label="Simpan Pembimbing" icon="pi pi-check" severity="success"
+                        @click="handleSingleAssignPa" />
+                </div>
+            </template>
+        </Dialog>
+
+        <!-- Modal Hasil Import -->
         <Dialog v-model:visible="importResultDialog" :style="{ width: '500px' }" header="Hasil Import Data"
             :modal="true">
             <div v-if="importResult">
@@ -253,17 +318,14 @@ async function downloadTemplate() {
                     Berhasil
                 </Message>
                 <Message v-else severity="error" :closable="false">{{ importResult.status }}</Message>
-
                 <div class="mt-4 p-3 bg-gray-50 rounded border border-gray-100">
-                    <p class="mb-2"><i class="pi pi-file-import mr-2 text-primary"></i><strong>Total Baris
-                            Dipindai:</strong> {{
-                                importResult.total_baris_dipindai }}</p>
+                    <p class="mb-2"><i class="pi pi-file-import mr-2 text-primary"></i><strong>Total Baris:</strong> {{
+                        importResult.total_baris_dipindai }}</p>
                     <p class="m-0"><i class="pi pi-check-circle mr-2 text-green-500"></i><strong>Berhasil
                             Disimpan:</strong> {{
                                 importResult.baris_berhasil_disimpan }}</p>
                 </div>
-
-                <div v-if="importResult.detail_error && importResult.detail_error.length > 0" class="mt-4">
+                <div v-if="importResult.detail_error?.length" class="mt-4">
                     <strong class="block mb-2 text-red-600 text-sm">Detail Kesalahan:</strong>
                     <ul class="list-disc pl-5 m-0 bg-red-50 border border-red-100 text-red-700 p-3 rounded-md text-xs">
                         <li v-for="(err, index) in importResult.detail_error" :key="index">{{ err }}</li>
@@ -276,10 +338,12 @@ async function downloadTemplate() {
         </Dialog>
 
         <!-- Dialog Konfirmasi Hapus -->
-        <Dialog v-model:visible="deleteMahasiswaDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
+        <Dialog v-model:visible="deleteMahasiswaDialog" :style="{ width: '450px' }" header="Konfirmasi Hapus"
+            :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="mahasiswa">Yakin ingin menghapus mahasiswa <b>{{ mahasiswa.nama_mahasiswa }}</b>?</span>
+                <span v-if="mahasiswa">Apakah Anda yakin ingin menghapus mahasiswa <b>{{ mahasiswa.nama_mahasiswa
+                        }}</b>?</span>
             </div>
             <template #footer>
                 <Button label="Batal" icon="pi pi-times" text @click="deleteMahasiswaDialog = false" />

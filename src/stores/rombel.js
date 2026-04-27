@@ -11,7 +11,9 @@ export const useRombelStore = defineStore('rombel', {
     actions: {
         async fetchSummary(params = {}) {
             this.isLoading = true;
+            this.error = null;
             try {
+                // Endpoint: GET /api/akademik/rombel
                 const response = await apiClient.get('/akademik/rombel', { params });
                 this.rombelList = response.data;
             } catch (e) {
@@ -33,7 +35,6 @@ export const useRombelStore = defineStore('rombel', {
             }
         },
         async moveStudents(payload) {
-            // payload: { registrasi_ids: [], kode_rombel_baru: string }
             this.isLoading = true;
             try {
                 await apiClient.put('/akademik/rombel/pindah', payload);
@@ -42,7 +43,6 @@ export const useRombelStore = defineStore('rombel', {
             }
         },
         async renameRombel(payload) {
-            // payload: { prodi_id, angkatan, kode_rombel_lama, kode_rombel_baru }
             this.isLoading = true;
             try {
                 await apiClient.put('/akademik/rombel/rename', payload);
