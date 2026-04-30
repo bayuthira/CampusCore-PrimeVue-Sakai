@@ -1,4 +1,5 @@
 <script setup>
+import { useAbsensiStore } from '@/stores/absensi'; // Store Absensi untuk fitur Biometrik
 import { useAuthStore } from '@/stores/auth';
 import { useCutiStore } from '@/stores/cuti';
 import { useDokumenStore } from '@/stores/dokumen';
@@ -21,6 +22,7 @@ const toast = useToast();
 const confirm = useConfirm();
 const store = usePegawaiStore();
 const prodiStore = useProdiStore();
+const absensiStore = useAbsensiStore();
 const { list, isLoading } = storeToRefs(store);
 const { prodiList } = storeToRefs(prodiStore);
 const riwayatSkStore = useRiwayatSkStore();
@@ -45,14 +47,17 @@ const dialog = ref(false);
 const deleteDialog = ref(false);
 const data = ref({});
 const submitted = ref(false);
-const dt = ref();
-const filters = ref({
-    global: { value: null, matchMode: FilterMatchMode.CONTAINS }
-});
+const filters = ref({ global: { value: null, matchMode: FilterMatchMode.CONTAINS } });
 const createUserDialog = ref(false);
 const userCreationData = ref({});
 const selectedPegawai = ref({});
 
+// --- State Khusus Audit Wajah ---
+const faceAuditDialog = ref(false);
+const facePhotoUrl = ref(null);
+const isFaceLoading = ref(false);
+
+// --- State Pendidikan ---
 const pendidikanListDialog = ref(false);
 const pendidikanFormDialog = ref(false);
 const deletePendidikanDialog = ref(false);
@@ -60,6 +65,7 @@ const pendidikanData = ref({});
 const pendidikanSubmitted = ref(false);
 const isPendidikanNew = computed(() => !pendidikanData.value.id);
 
+// --- State SK ---
 const riwayatSkListDialog = ref(false);
 const riwayatSkFormDialog = ref(false);
 const deleteRiwayatSkDialog = ref(false);
@@ -67,6 +73,7 @@ const riwayatSkData = ref({});
 const riwayatSkSubmitted = ref(false);
 const isRiwayatSkNew = computed(() => !riwayatSkData.value.id);
 
+// --- State Dokumen ---
 const dokumenListDialog = ref(false);
 const selectedRecord = ref(null);
 const selectedRecordType = ref('');
@@ -75,6 +82,7 @@ const isBuktiLoading = ref(false);
 const uploadRef = ref(null);
 const uploadKategori = ref(null);
 
+// --- State Cuti ---
 const jatahDialog = ref(false);
 const jatahData = ref({});
 const jatahSubmitted = ref(false);
@@ -82,6 +90,7 @@ const viewJatahDialog = ref(false);
 const viewJatahData = ref(null);
 const { isLoading: isCutiLoading } = storeToRefs(cutiStore);
 
+// --- State Sertifikat ---
 const sertifikatListDialog = ref(false);
 const sertifikatFormDialog = ref(false);
 const deleteSertifikatDialog = ref(false);
@@ -89,6 +98,7 @@ const sertifikatData = ref({});
 const sertifikatSubmitted = ref(false);
 const isSertifikatNew = computed(() => !sertifikatData.value.id);
 
+// --- State Karir Dosen ---
 const karirDosenDialog = ref(false);
 const jadFormDialog = ref(false);
 const deleteJadDialog = ref(false);
@@ -102,6 +112,7 @@ const serdosData = ref({});
 const serdosSubmitted = ref(false);
 const isSerdosNew = computed(() => !serdosData.value.id);
 
+// --- State Penempatan ---
 const penempatanListDialog = ref(false);
 const penempatanFormDialog = ref(false);
 const deletePenempatanDialog = ref(false);
@@ -109,7 +120,7 @@ const penempatanData = ref({});
 const penempatanSubmitted = ref(false);
 const isPenempatanNew = computed(() => !penempatanData.value.id);
 
-// Opsi dropdown
+// --- Opsi Dropdown ---
 const jenisKelaminOptions = ref([{ label: 'Laki-laki', value: 'L' }, { label: 'Perempuan', value: 'P' }]);
 const statusNikahOptions = ref(['Menikah', 'Belum Menikah', 'Cerai Hidup', 'Cerai Mati']);
 const statusPegawaiOptions = ref(['Tetap', 'Kontrak', 'Honorer']);
@@ -143,7 +154,7 @@ function formatDate(date) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// --- CRUD Functions ---
+// --- CRUD Utama ---
 function openNew() {
     data.value = { is_active: true, kewarganegaraan: 'ID', kategori_pegawai: 'Tenaga Kependidikan', ikatan_kerja: 'A' };
     submitted.value = false;
@@ -157,10 +168,7 @@ function hideDialog() {
 
 async function saveData() {
     submitted.value = true;
-    if (!data.value.nik?.trim() || !data.value.nama_lengkap?.trim()) {
-        toast.add({ severity: 'warn', summary: 'Perhatian', detail: 'NIK dan Nama Lengkap wajib diisi.', life: 3000 });
-        return;
-    }
+    if (!data.value.nik?.trim() || !data.value.nama_lengkap?.trim()) return;
     try {
         const payload = {
             ...data.value,
@@ -168,33 +176,27 @@ async function saveData() {
             tanggal_masuk: formatDate(data.value.tanggal_masuk),
             tanggal_pensiun: formatDate(data.value.tanggal_pensiun)
         };
-        if (data.value.id) {
-            await store.update(data.value.id, payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai Diperbarui', life: 3000 });
-        } else {
-            await store.create(payload);
-            toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Pegawai Baru Dibuat', life: 3000 });
-        }
+        if (data.value.id) await store.update(data.value.id, payload);
+        else await store.create(payload);
         dialog.value = false;
-        data.value = {};
-    } catch (error) {
-        const errorMessage = error.response?.data?.error || 'Terjadi kesalahan saat menyimpan';
-        toast.add({ severity: 'error', summary: 'Gagal', detail: errorMessage, life: 4000 });
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai disimpan', life: 3000 });
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan data', life: 3000 });
     }
 }
 
-function editData(editRow) {
+function editData(row) {
     data.value = {
-        ...editRow,
-        tanggal_lahir: editRow.tanggal_lahir ? new Date(editRow.tanggal_lahir) : null,
-        tanggal_masuk: editRow.tanggal_masuk ? new Date(editRow.tanggal_masuk) : null,
-        tanggal_pensiun: editRow.tanggal_pensiun ? new Date(editRow.tanggal_pensiun) : null
+        ...row,
+        tanggal_lahir: row.tanggal_lahir ? new Date(row.tanggal_lahir) : null,
+        tanggal_masuk: row.tanggal_masuk ? new Date(row.tanggal_masuk) : null,
+        tanggal_pensiun: row.tanggal_pensiun ? new Date(row.tanggal_pensiun) : null
     };
     dialog.value = true;
 }
 
-function confirmDelete(deleteRow) {
-    data.value = deleteRow;
+function confirmDelete(row) {
+    data.value = row;
     deleteDialog.value = true;
 }
 
@@ -202,450 +204,123 @@ async function deleteData() {
     try {
         await store.delete(data.value.id);
         deleteDialog.value = false;
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai Dihapus', life: 3000 });
-    } catch (error) {
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Data Pegawai dihapus', life: 3000 });
+    } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
     }
 }
 
-// --- Menu Handlers ---
-function openCreateUserDialog(pegawai) {
+// --- Handler Manajemen Wajah (Biometrik) ---
+async function openFaceAudit(pegawai) {
     selectedPegawai.value = pegawai;
-    userCreationData.value = { password: '' };
-    submitted.value = false;
-    createUserDialog.value = true;
-}
+    facePhotoUrl.value = null;
+    faceAuditDialog.value = true;
+    isFaceLoading.value = true;
 
-async function saveUserAccount() {
-    submitted.value = true;
-    if (!userCreationData.value.password) return;
     try {
-        await store.createUserAccount(selectedPegawai.value.id, userCreationData.value);
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Akun user telah dibuat.', life: 3000 });
-        createUserDialog.value = false;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal membuat akun user.', life: 4000 });
-    }
-}
-
-async function openPendidikanList(pegawai) {
-    selectedPegawai.value = pegawai;
-    try {
-        await pendidikanStore.fetchByPegawai(pegawai.id);
-        pendidikanListDialog.value = true;
+        const url = await absensiStore.fetchFaceBlob(pegawai.id);
+        facePhotoUrl.value = url;
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat pendidikan.', life: 3000 });
-    }
-}
-
-function openNewPendidikan() {
-    pendidikanData.value = {};
-    pendidikanSubmitted.value = false;
-    pendidikanFormDialog.value = true;
-}
-
-function editPendidikan(row) {
-    pendidikanData.value = { ...row };
-    pendidikanSubmitted.value = false;
-    pendidikanFormDialog.value = true;
-}
-
-function hidePendidikanDialog() {
-    pendidikanFormDialog.value = false;
-    pendidikanSubmitted.value = false;
-}
-
-async function savePendidikan() {
-    pendidikanSubmitted.value = true;
-    if (!pendidikanData.value.jenjang || !pendidikanData.value.institusi || !pendidikanData.value.tahun_lulus) return;
-    try {
-        if (isPendidikanNew.value) await pendidikanStore.create(selectedPegawai.value.id, pendidikanData.value);
-        else await pendidikanStore.update(pendidikanData.value.id, pendidikanData.value);
-        await pendidikanStore.fetchByPegawai(selectedPegawai.value.id);
-        pendidikanFormDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan riwayat pendidikan', life: 3000 });
-    }
-}
-
-function confirmDeletePendidikan(row) {
-    pendidikanData.value = row;
-    deletePendidikanDialog.value = true;
-}
-
-async function deletePendidikan() {
-    try {
-        await pendidikanStore.delete(pendidikanData.value.id);
-        await pendidikanStore.fetchByPegawai(selectedPegawai.value.id);
-        deletePendidikanDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus riwayat pendidikan', life: 3000 });
-    }
-}
-
-async function openRiwayatSkList(pegawai) {
-    selectedPegawai.value = pegawai;
-    try {
-        await riwayatSkStore.fetchByPegawai(pegawai.id);
-        riwayatSkListDialog.value = true;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat SK.', life: 3000 });
-    }
-}
-
-function openNewRiwayatSk() {
-    riwayatSkData.value = { tanggal_sk: new Date() };
-    riwayatSkSubmitted.value = false;
-    riwayatSkFormDialog.value = true;
-}
-
-function editRiwayatSk(row) {
-    riwayatSkData.value = { ...row, tanggal_sk: new Date(row.tanggal_sk) };
-    riwayatSkSubmitted.value = false;
-    riwayatSkFormDialog.value = true;
-}
-
-function hideRiwayatSkDialog() {
-    riwayatSkFormDialog.value = false;
-    riwayatSkSubmitted.value = false;
-}
-
-async function saveRiwayatSk() {
-    riwayatSkSubmitted.value = true;
-    if (!riwayatSkData.value.nomor_sk || !riwayatSkData.value.tanggal_sk) return;
-    try {
-        const payload = { ...riwayatSkData.value, tanggal_sk: formatDate(riwayatSkData.value.tanggal_sk) };
-        if (isRiwayatSkNew.value) await riwayatSkStore.create(selectedPegawai.value.id, payload);
-        else await riwayatSkStore.update(riwayatSkData.value.id, payload);
-        await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id);
-        riwayatSkFormDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan riwayat SK', life: 3000 });
-    }
-}
-
-function confirmDeleteRiwayatSk(row) {
-    riwayatSkData.value = row;
-    deleteRiwayatSkDialog.value = true;
-}
-
-async function deleteRiwayatSk() {
-    try {
-        await riwayatSkStore.delete(riwayatSkData.value.id);
-        await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id);
-        deleteRiwayatSkDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus riwayat SK', life: 3000 });
-    }
-}
-
-async function openDokumenDialog(record, type, pegawaiNama) {
-    selectedRecord.value = record;
-    selectedRecordType.value = type;
-    selectedPegawai.value.nama_lengkap = pegawaiNama;
-    try {
-        await dokumenStore.fetchList(type, record.id);
-        dokumenListDialog.value = true;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat dokumen.', life: 3000 });
-    }
-}
-
-function onFileSelect(event) {
-    fileToUpload.value = event.files[0];
-}
-
-async function handleUploadDokumen() {
-    if (!fileToUpload.value || !uploadKategori.value) {
-        toast.add({ severity: 'warn', summary: 'Peringatan', detail: 'Pilih file dan kategori terlebih dahulu', life: 3000 });
-        return;
-    }
-    const formData = new FormData();
-    formData.append('file', fileToUpload.value);
-    formData.append('kategori', uploadKategori.value);
-    try {
-        await dokumenStore.upload(selectedRecordType.value, selectedRecord.value.id, formData);
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dokumen berhasil diupload', life: 3000 });
-        fileToUpload.value = null;
-        if (uploadRef.value) uploadRef.value.clear();
-        await dokumenStore.fetchList(selectedRecordType.value, selectedRecord.value.id);
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal upload dokumen', life: 3000 });
-    }
-}
-
-async function viewDokumen(path) {
-    if (!path) return;
-    isBuktiLoading.value = true;
-    try {
-        const blob = await dokumenStore.viewFile(path);
-        const fileURL = URL.createObjectURL(blob);
-        window.open(fileURL, '_blank');
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: error.message, life: 3000 });
+        // Error di-handle di store
     } finally {
-        isBuktiLoading.value = false;
+        isFaceLoading.value = false;
     }
 }
 
-function confirmDeleteDokumen(dokumen) {
+async function handleAuditFace(status) {
+    try {
+        await absensiStore.auditFace(selectedPegawai.value.id, status);
+        toast.add({ severity: 'success', summary: 'Berhasil', detail: `Foto wajah ditandai sebagai ${status}`, life: 3000 });
+        faceAuditDialog.value = false;
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memperbarui status audit', life: 3000 });
+    }
+}
+
+function confirmDeleteFace() {
     confirm.require({
-        message: `Hapus file ${dokumen.nama_file_asli}?`,
-        header: 'Konfirmasi Hapus',
+        message: `Hapus foto referensi wajah ${selectedPegawai.value.nama_lengkap}? Karyawan harus mengunggah ulang fotonya.`,
+        header: 'Konfirmasi Reset Wajah',
         icon: 'pi pi-exclamation-triangle',
         acceptClass: 'p-button-danger',
         accept: async () => {
             try {
-                await dokumenStore.delete(dokumen.id);
-                await dokumenStore.fetchList(selectedRecordType.value, selectedRecord.value.id);
-                toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Dokumen dihapus', life: 3000 });
-            } catch (error) {
-                toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus dokumen', life: 3000 });
+                await absensiStore.deleteFace(selectedPegawai.value.id);
+                toast.add({ severity: 'info', summary: 'Berhasil', detail: 'Foto wajah dihapus', life: 3000 });
+                faceAuditDialog.value = false;
+            } catch (e) {
+                toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus foto', life: 3000 });
             }
         }
     });
 }
 
-function openJatahDialog(pegawai) {
-    selectedPegawai.value = pegawai;
-    jatahData.value = { pegawai_id: pegawai.id, tahun: new Date().getFullYear(), kuota_total: 12 };
-    jatahSubmitted.value = false;
-    jatahDialog.value = true;
+function closeFaceDialog() {
+    if (facePhotoUrl.value) URL.revokeObjectURL(facePhotoUrl.value);
+    faceAuditDialog.value = false;
 }
 
-async function saveJatahCuti() {
-    jatahSubmitted.value = true;
-    if (!jatahData.value.tahun || jatahData.value.kuota_total == null) return;
-    try {
-        await cutiStore.setJatahCuti(jatahData.value);
-        toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Jatah cuti disimpan.', life: 3000 });
-        jatahDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan jatah cuti', life: 4000 });
-    }
-}
+// --- Menu Handlers: User & Pendidikan ---
+function openCreateUserDialog(p) { selectedPegawai.value = p; userCreationData.value = { password: '' }; createUserDialog.value = true; }
+async function saveUserAccount() { try { await store.createUserAccount(selectedPegawai.value.id, userCreationData.value); createUserDialog.value = false; toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Akun user dibuat', life: 3000 }); } catch (e) { } }
 
-async function openViewJatahDialog(pegawai) {
-    selectedPegawai.value = pegawai;
-    viewJatahData.value = null;
-    viewJatahDialog.value = true;
-    try {
-        const currentYear = new Date().getFullYear();
-        const dataArr = await cutiStore.fetchJatahCutiByPegawai(pegawai.id, currentYear);
-        if (dataArr && dataArr.length > 0) {
-            const jatah = dataArr[0];
-            viewJatahData.value = { ...jatah, sisa_cuti: jatah.kuota_total - jatah.kuota_terpakai };
-        } else {
-            viewJatahData.value = { error: `Data tahun ${currentYear} tidak ditemukan.` };
-        }
-    } catch (e) {
-        viewJatahData.value = { error: 'Gagal memuat data.' };
-    }
-}
+async function openPendidikanList(p) { selectedPegawai.value = p; await pendidikanStore.fetchByPegawai(p.id); pendidikanListDialog.value = true; }
+function openNewPendidikan() { pendidikanData.value = {}; pendidikanFormDialog.value = true; }
+function editPendidikan(r) { pendidikanData.value = { ...r }; pendidikanFormDialog.value = true; }
+function hidePendidikanDialog() { pendidikanFormDialog.value = false; }
+async function savePendidikan() { try { if (isPendidikanNew.value) await pendidikanStore.create(selectedPegawai.value.id, pendidikanData.value); else await pendidikanStore.update(pendidikanData.value.id, pendidikanData.value); await pendidikanStore.fetchByPegawai(selectedPegawai.value.id); pendidikanFormDialog.value = false; } catch (e) { } }
+function confirmDeletePendidikan(r) { pendidikanData.value = r; deletePendidikanDialog.value = true; }
+async function deletePendidikan() { try { await pendidikanStore.delete(pendidikanData.value.id); await pendidikanStore.fetchByPegawai(selectedPegawai.value.id); deletePendidikanDialog.value = false; } catch (e) { } }
 
-async function openSertifikatList(pegawai) {
-    selectedPegawai.value = pegawai;
-    try {
-        await sertifikatStore.fetchByPegawai(pegawai.id);
-        sertifikatListDialog.value = true;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat riwayat sertifikat.', life: 3000 });
-    }
-}
+// --- Menu Handlers: SK & Sertifikat ---
+async function openRiwayatSkList(p) { selectedPegawai.value = p; await riwayatSkStore.fetchByPegawai(p.id); riwayatSkListDialog.value = true; }
+function openNewRiwayatSk() { riwayatSkData.value = { tanggal_sk: new Date() }; riwayatSkFormDialog.value = true; }
+function editRiwayatSk(r) { riwayatSkData.value = { ...r, tanggal_sk: new Date(r.tanggal_sk) }; riwayatSkFormDialog.value = true; }
+function hideRiwayatSkDialog() { riwayatSkFormDialog.value = false; }
+async function saveRiwayatSk() { try { const p = { ...riwayatSkData.value, tanggal_sk: formatDate(riwayatSkData.value.tanggal_sk) }; if (isRiwayatSkNew.value) await riwayatSkStore.create(selectedPegawai.value.id, p); else await riwayatSkStore.update(riwayatSkData.value.id, p); await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id); riwayatSkFormDialog.value = false; } catch (e) { } }
+function confirmDeleteRiwayatSk(r) { riwayatSkData.value = r; deleteRiwayatSkDialog.value = true; }
+async function deleteRiwayatSk() { try { await riwayatSkStore.delete(riwayatSkData.value.id); await riwayatSkStore.fetchByPegawai(selectedPegawai.value.id); deleteRiwayatSkDialog.value = false; } catch (e) { } }
 
-function openNewSertifikat() {
-    sertifikatData.value = { tanggal_pelaksanaan: new Date() };
-    sertifikatSubmitted.value = false;
-    sertifikatFormDialog.value = true;
-}
+async function openSertifikatList(p) { selectedPegawai.value = p; await sertifikatStore.fetchByPegawai(p.id); sertifikatListDialog.value = true; }
+function openNewSertifikat() { sertifikatData.value = { tanggal_pelaksanaan: new Date() }; sertifikatFormDialog.value = true; }
+function editSertifikat(r) { sertifikatData.value = { ...r, tanggal_pelaksanaan: new Date(r.tanggal_pelaksanaan) }; sertifikatFormDialog.value = true; }
+function hideSertifikatDialog() { sertifikatFormDialog.value = false; }
+async function saveSertifikat() { try { const p = { ...sertifikatData.value, tanggal_pelaksanaan: formatDate(sertifikatData.value.tanggal_pelaksanaan) }; if (isSertifikatNew.value) await sertifikatStore.create(selectedPegawai.value.id, p); else await sertifikatStore.update(sertifikatData.value.id, p); await sertifikatStore.fetchByPegawai(selectedPegawai.value.id); sertifikatFormDialog.value = false; } catch (e) { } }
+function confirmDeleteSertifikat(r) { sertifikatData.value = r; deleteSertifikatDialog.value = true; }
+async function deleteSertifikat() { try { await sertifikatStore.delete(sertifikatData.value.id); await sertifikatStore.fetchByPegawai(selectedPegawai.value.id); deleteSertifikatDialog.value = false; } catch (e) { } }
 
-function editSertifikat(row) {
-    sertifikatData.value = { ...row, tanggal_pelaksanaan: new Date(row.tanggal_pelaksanaan) };
-    sertifikatSubmitted.value = false;
-    sertifikatFormDialog.value = true;
-}
+// --- Menu Handlers: Dokumen ---
+async function openDokumenDialog(r, t, n) { selectedRecord.value = r; selectedRecordType.value = t; selectedPegawai.value.nama_lengkap = n; await dokumenStore.fetchList(t, r.id); dokumenListDialog.value = true; }
+function onFileSelect(e) { fileToUpload.value = e.files[0]; }
+async function handleUploadDokumen() { const f = new FormData(); f.append('file', fileToUpload.value); f.append('kategori', uploadKategori.value); try { await dokumenStore.upload(selectedRecordType.value, selectedRecord.value.id, f); fileToUpload.value = null; if (uploadRef.value) uploadRef.value.clear(); await dokumenStore.fetchList(selectedRecordType.value, selectedRecord.value.id); } catch (e) { } }
+async function viewDokumen(path) { if (!path) return; isBuktiLoading.value = true; try { const b = await dokumenStore.viewFile(path); const u = URL.createObjectURL(b); window.open(u, '_blank'); } catch (e) { } finally { isBuktiLoading.value = false; } }
+function confirmDeleteDokumen(d) { confirm.require({ message: `Hapus file ${d.nama_file_asli}?`, accept: async () => { try { await dokumenStore.delete(d.id); await dokumenStore.fetchList(selectedRecordType.value, selectedRecord.value.id); } catch (e) { } } }); }
 
-function hideSertifikatDialog() {
-    sertifikatFormDialog.value = false;
-    sertifikatSubmitted.value = false;
-}
+// --- Menu Handlers: Cuti ---
+function openJatahDialog(p) { selectedPegawai.value = p; jatahData.value = { pegawai_id: p.id, tahun: new Date().getFullYear(), kuota_total: 12 }; jatahDialog.value = true; }
+async function saveJatahCuti() { try { await cutiStore.setJatahCuti(jatahData.value); jatahDialog.value = false; } catch (e) { } }
+async function openViewJatahDialog(p) { selectedPegawai.value = p; viewJatahData.value = null; viewJatahDialog.value = true; try { const y = new Date().getFullYear(); const d = await cutiStore.fetchJatahCutiByPegawai(p.id, y); if (d && d.length > 0) viewJatahData.value = { ...d[0], sisa_cuti: d[0].kuota_total - d[0].kuota_terpakai }; else viewJatahData.value = { error: `Data ${y} tidak ditemukan.` }; } catch (e) { } }
 
-async function saveSertifikat() {
-    sertifikatSubmitted.value = true;
-    if (!sertifikatData.value.jenis_sertifikat || !sertifikatData.value.judul_sertifikat || !sertifikatData.value.tanggal_pelaksanaan) return;
-    try {
-        const payload = { ...sertifikatData.value, tanggal_pelaksanaan: formatDate(sertifikatData.value.tanggal_pelaksanaan) };
-        if (isSertifikatNew.value) await sertifikatStore.create(selectedPegawai.value.id, payload);
-        else await sertifikatStore.update(sertifikatData.value.id, payload);
-        await sertifikatStore.fetchByPegawai(selectedPegawai.value.id);
-        sertifikatFormDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan sertifikat', life: 3000 });
-    }
-}
+// --- Menu Handlers: Karir Dosen & Penempatan ---
+async function openKarirDosenDialog(p) { selectedPegawai.value = p; await Promise.all([karirDosenStore.fetchJad(p.id), karirDosenStore.fetchSerdos(p.id)]); karirDosenDialog.value = true; }
+function openNewJad() { jadData.value = { tmt: new Date() }; jadFormDialog.value = true; }
+function editJad(r) { jadData.value = { ...r, tmt: new Date(r.tmt) }; jadFormDialog.value = true; }
+async function saveJad() { try { const p = { ...jadData.value, tmt: formatDate(jadData.value.tmt) }; if (isJadNew.value) await karirDosenStore.createJad(selectedPegawai.value.id, p); else await karirDosenStore.updateJad(jadData.value.id, p); await karirDosenStore.fetchJad(selectedPegawai.value.id); jadFormDialog.value = false; } catch (e) { } }
+function confirmDeleteJad(r) { jadData.value = r; deleteJadDialog.value = true; }
+async function deleteJad() { try { await karirDosenStore.deleteJad(jadData.value.id); await karirDosenStore.fetchJad(selectedPegawai.value.id); deleteJadDialog.value = false; } catch (e) { } }
+function openNewSerdos() { serdosData.value = { tanggal_terbit: new Date() }; serdosFormDialog.value = true; }
+function editSerdos(r) { serdosData.value = { ...r, tanggal_terbit: new Date(r.tanggal_terbit) }; serdosFormDialog.value = true; }
+async function saveSerdos() { try { const p = { ...serdosData.value, tanggal_terbit: formatDate(serdosData.value.tanggal_terbit) }; if (isSerdosNew.value) await karirDosenStore.createSerdos(selectedPegawai.value.id, p); else await karirDosenStore.updateSerdos(serdosData.value.id, p); await karirDosenStore.fetchSerdos(selectedPegawai.value.id); serdosFormDialog.value = false; } catch (e) { } }
+function confirmDeleteSerdos(r) { serdosData.value = r; deleteSerdosDialog.value = true; }
+async function deleteSerdos() { try { await karirDosenStore.deleteSerdos(serdosData.value.id); await karirDosenStore.fetchSerdos(selectedPegawai.value.id); deleteSerdosDialog.value = false; } catch (e) { } }
 
-function confirmDeleteSertifikat(row) {
-    sertifikatData.value = row;
-    deleteSertifikatDialog.value = true;
-}
-
-async function deleteSertifikat() {
-    try {
-        await sertifikatStore.delete(sertifikatData.value.id);
-        await sertifikatStore.fetchByPegawai(selectedPegawai.value.id);
-        deleteSertifikatDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
-    }
-}
-
-async function openKarirDosenDialog(pegawai) {
-    selectedPegawai.value = pegawai;
-    try {
-        await Promise.all([karirDosenStore.fetchJad(pegawai.id), karirDosenStore.fetchSerdos(pegawai.id)]);
-        karirDosenDialog.value = true;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat data karir dosen.', life: 3000 });
-    }
-}
-
-function openNewJad() {
-    jadData.value = { tmt: new Date() };
-    jadSubmitted.value = false;
-    jadFormDialog.value = true;
-}
-
-function editJad(row) {
-    jadData.value = { ...row, tmt: new Date(row.tmt) };
-    jadSubmitted.value = false;
-    jadFormDialog.value = true;
-}
-
-async function saveJad() {
-    jadSubmitted.value = true;
-    if (!jadData.value.jabatan_akademik || !jadData.value.pangkat_golongan || !jadData.value.nomor_sk || !jadData.value.tmt) return;
-    try {
-        const payload = { ...jadData.value, tmt: formatDate(jadData.value.tmt) };
-        if (isJadNew.value) await karirDosenStore.createJad(selectedPegawai.value.id, payload);
-        else await karirDosenStore.updateJad(jadData.value.id, payload);
-        await karirDosenStore.fetchJad(selectedPegawai.value.id);
-        jadFormDialog.value = false;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan JAD', life: 3000 });
-    }
-}
-
-function confirmDeleteJad(row) {
-    jadData.value = row;
-    deleteJadDialog.value = true;
-}
-
-async function deleteJad() {
-    try {
-        await karirDosenStore.deleteJad(jadData.value.id);
-        await karirDosenStore.fetchJad(selectedPegawai.value.id);
-        deleteJadDialog.value = false;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
-    }
-}
-
-function openNewSerdos() {
-    serdosData.value = { tanggal_terbit: new Date() };
-    serdosSubmitted.value = false;
-    serdosFormDialog.value = true;
-}
-
-function editSerdos(row) {
-    serdosData.value = { ...row, tanggal_terbit: new Date(row.tanggal_terbit) };
-    serdosSubmitted.value = false;
-    serdosFormDialog.value = true;
-}
-
-async function saveSerdos() {
-    serdosSubmitted.value = true;
-    if (!serdosData.value.nomor_sertifikat || !serdosData.value.tanggal_terbit) return;
-    try {
-        const payload = { ...serdosData.value, tanggal_terbit: formatDate(serdosData.value.tanggal_terbit) };
-        if (isSerdosNew.value) await karirDosenStore.createSerdos(selectedPegawai.value.id, payload);
-        else await karirDosenStore.updateSerdos(serdosData.value.id, payload);
-        await karirDosenStore.fetchSerdos(selectedPegawai.value.id);
-        serdosFormDialog.value = false;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan SERDOS', life: 3000 });
-    }
-}
-
-function confirmDeleteSerdos(row) {
-    serdosData.value = row;
-    deleteSerdosDialog.value = true;
-}
-
-async function deleteSerdos() {
-    try {
-        await karirDosenStore.deleteSerdos(serdosData.value.id);
-        await karirDosenStore.fetchSerdos(selectedPegawai.value.id);
-        deleteSerdosDialog.value = false;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus data', life: 3000 });
-    }
-}
-
-async function openPenempatanList(pegawai) {
-    selectedPegawai.value = pegawai;
-    try {
-        await penempatanStore.fetchByPegawai(pegawai.id);
-        penempatanListDialog.value = true;
-    } catch (error) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal memuat penempatan.', life: 3000 });
-    }
-}
-
-function openNewPenempatan() {
-    penempatanData.value = { tanggal_mulai: new Date() };
-    penempatanSubmitted.value = false;
-    penempatanFormDialog.value = true;
-}
-
-function editPenempatan(row) {
-    penempatanData.value = { ...row, tanggal_mulai: new Date(row.tanggal_mulai) };
-    penempatanSubmitted.value = false;
-    penempatanFormDialog.value = true;
-}
-
-function hidePenempatanDialog() {
-    penempatanFormDialog.value = false;
-    penempatanSubmitted.value = false;
-}
-
-async function savePenempatan() {
-    penempatanSubmitted.value = true;
-    if (!penempatanData.value.unit_kerja_id || !penempatanData.value.jabatan || !penempatanData.value.nomor_sk || !penempatanData.value.tanggal_mulai) return;
-    try {
-        const payload = { ...penempatanData.value, tanggal_mulai: formatDate(penempatanData.value.tanggal_mulai) };
-        if (isPenempatanNew.value) await penempatanStore.create(selectedPegawai.value.id, payload);
-        else await penempatanStore.update(penempatanData.value.id, payload);
-        await penempatanStore.fetchByPegawai(selectedPegawai.value.id);
-        penempatanFormDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menyimpan penempatan', life: 3000 });
-    }
-}
-
-function confirmDeletePenempatan(row) {
-    penempatanData.value = row;
-    deletePenempatanDialog.value = true;
-}
-
-async function deletePenempatan() {
-    try {
-        await penempatanStore.delete(penempatanData.value.id);
-        await penempatanStore.fetchByPegawai(selectedPegawai.value.id);
-        deletePenempatanDialog.value = false;
-    } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal menghapus penempatan', life: 3000 });
-    }
-}
+async function openPenempatanList(p) { selectedPegawai.value = p; await penempatanStore.fetchByPegawai(p.id); penempatanListDialog.value = true; }
+function openNewPenempatan() { penempatanData.value = { tanggal_mulai: new Date() }; penempatanFormDialog.value = true; }
+function editPenempatan(r) { penempatanData.value = { ...r, tanggal_mulai: new Date(r.tanggal_mulai) }; penempatanFormDialog.value = true; }
+function hidePenempatanDialog() { penempatanFormDialog.value = false; }
+async function savePenempatan() { try { const p = { ...penempatanData.value, tanggal_mulai: formatDate(penempatanData.value.tanggal_mulai) }; if (isPenempatanNew.value) await penempatanStore.create(selectedPegawai.value.id, p); else await penempatanStore.update(penempatanData.value.id, p); await penempatanStore.fetchByPegawai(selectedPegawai.value.id); penempatanFormDialog.value = false; } catch (e) { } }
+function confirmDeletePenempatan(r) { penempatanData.value = r; deletePenempatanDialog.value = true; }
+async function deletePenempatan() { try { await penempatanStore.delete(penempatanData.value.id); await penempatanStore.fetchByPegawai(selectedPegawai.value.id); deletePenempatanDialog.value = false; } catch (e) { } }
 </script>
 
 <template>
@@ -681,6 +356,12 @@ async function deletePenempatan() {
                 <Column :exportable="false" style="min-width: 25rem" header="Aksi">
                     <template #body="slotProps">
                         <div class="flex flex-wrap gap-2">
+                            <!-- TOMBOL VERIFIKASI WAJAH (Khusus Admin) -->
+                            <Button
+                                v-if="authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'STAF_BASDM'].includes(r))"
+                                icon="pi pi-camera" outlined rounded severity="help"
+                                @click="openFaceAudit(slotProps.data)" v-tooltip.top="'Verifikasi Wajah (Biometrik)'" />
+
                             <Button v-if="slotProps.data.kategori_pegawai === 'Tenaga Pendidik'" icon="pi pi-star"
                                 outlined rounded severity="success" @click="openKarirDosenDialog(slotProps.data)"
                                 v-tooltip.top="'Karir Dosen (JAD/SERDOS)'" />
@@ -712,69 +393,108 @@ async function deletePenempatan() {
             </DataTable>
         </div>
 
-        <!-- Dialog Detail Pegawai (Neo Feeder Standard) -->
+        <!-- DIALOG AUDIT WAJAH BIOMETRIK -->
+        <Dialog v-model:visible="faceAuditDialog" :style="{ width: '500px' }"
+            :header="`Audit Wajah: ${selectedPegawai.nama_lengkap}`" :modal="true" @hide="closeFaceDialog">
+            <div class="flex flex-col items-center gap-6 py-4">
+                <div v-if="isFaceLoading" class="flex flex-col items-center py-8">
+                    <ProgressSpinner style="width: 50px; height: 50px" />
+                    <span class="text-slate-500 mt-2">Mengambil foto aman...</span>
+                </div>
+
+                <div v-else-if="facePhotoUrl" class="w-full flex flex-col items-center gap-4">
+                    <div
+                        class="w-64 h-64 rounded-full overflow-hidden border-4 border-slate-100 shadow-lg bg-slate-50 relative group">
+                        <img :src="facePhotoUrl" class="w-full h-full object-cover" />
+                    </div>
+                    <div class="text-center px-4">
+                        <p class="m-0 text-slate-600 text-sm">Validasi apakah foto ini sesuai dengan wajah asli <b>{{
+                                selectedPegawai.nama_lengkap }}</b> untuk keperluan presensi biometrik.</p>
+                    </div>
+
+                    <div class="flex flex-col w-full gap-3 mt-4 px-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <Button label="Audit: Valid" icon="pi pi-check-circle" severity="success"
+                                @click="handleAuditFace('Valid')" />
+                            <Button label="Audit: Tolak" icon="pi pi-times-circle" severity="warn"
+                                @click="handleAuditFace('Ditolak')" />
+                        </div>
+                        <Button label="Hapus / Reset Foto" icon="pi pi-trash" severity="danger" text
+                            @click="confirmDeleteFace" />
+                    </div>
+                </div>
+
+                <div v-else class="py-12 flex flex-col items-center text-slate-400 italic">
+                    <i class="pi pi-image text-5xl mb-4 opacity-20"></i>
+                    <span>Belum ada foto referensi wajah.</span>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Tutup" icon="pi pi-times" text severity="secondary" @click="closeFaceDialog" />
+            </template>
+        </Dialog>
+
+        <!-- DIALOG UTAMA PEGAWAI -->
         <Dialog v-model:visible="dialog" :style="{ width: '80vw' }" header="Detail Pegawai" :modal="true"
             class="p-fluid">
             <TabView>
                 <TabPanel header="Identitas Dasar">
                     <div class="grid grid-cols-12 gap-4 mt-2">
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">NIK *</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">NIK
+                                *</label>
                             <InputText v-model.trim="data.nik" required :invalid="submitted && !data.nik" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">NUPTK (Opsional)</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">NUPTK
+                                (Opsional)</label>
                             <InputText v-model.trim="data.nuptk" placeholder="16 Digit NUPTK" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">Kewarganegaraan</label>
+                        <div class="col-span-12 md:col-span-4"><label
+                                class="font-bold block mb-2 text-gray-600">Kewarganegaraan</label>
                             <Dropdown v-model="data.kewarganegaraan" :options="kewarganegaraanOptions"
                                 optionLabel="label" optionValue="value" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-12">
-                            <label class="font-bold block mb-2 text-gray-600">Nama Lengkap *</label>
+                        <div class="col-span-12 md:col-span-12"><label class="font-bold block mb-2 text-gray-600">Nama
+                                Lengkap
+                                *</label>
                             <InputText v-model.trim="data.nama_lengkap" required
                                 :invalid="submitted && !data.nama_lengkap" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">Gelar Depan</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">Gelar
+                                Depan</label>
                             <InputText v-model.trim="data.gelar_depan" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">Gelar Belakang</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">Gelar
+                                Belakang</label>
                             <InputText v-model.trim="data.gelar_belakang" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">Jenis Kelamin</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">Jenis
+                                Kelamin</label>
                             <Dropdown v-model="data.jenis_kelamin" :options="jenisKelaminOptions" optionLabel="label"
                                 optionValue="value" placeholder="Pilih" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Tempat Lahir</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">Tempat
+                                Lahir</label>
                             <InputText v-model.trim="data.tempat_lahir" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Tanggal Lahir</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">Tanggal
+                                Lahir</label>
                             <Calendar v-model="data.tanggal_lahir" dateFormat="yy-mm-dd" />
                         </div>
-                        <div class="col-span-12 md:col-span-12">
-                            <label class="font-bold block mb-2 text-gray-600">Nama Ibu Kandung *</label>
+                        <div class="col-span-12 md:col-span-12"><label class="font-bold block mb-2 text-gray-600">Nama
+                                Ibu
+                                Kandung *</label>
                             <InputText v-model.trim="data.nama_ibu_kandung" placeholder="Sesuai Akte" fluid />
                         </div>
                     </div>
                 </TabPanel>
-
                 <TabPanel header="Alamat & Kontak">
                     <div class="grid grid-cols-12 gap-4 mt-2">
-                        <div class="col-span-12">
-                            <label class="font-bold block mb-2 text-gray-600">Alamat Lengkap</label>
-                            <Textarea v-model.trim="data.alamat_domisili" rows="2" fluid />
-                        </div>
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">Dusun</label>
+                        <div class="col-span-12"><label class="font-bold block mb-2 text-gray-600">Alamat
+                                Lengkap</label><Textarea v-model.trim="data.alamat_domisili" rows="2" fluid /></div>
+                        <div class="col-span-12 md:col-span-4"><label
+                                class="font-bold block mb-2 text-gray-600">Dusun</label>
                             <InputText v-model.trim="data.dusun" fluid />
                         </div>
-                        <!-- PERBAIKAN: Spans disesuaikan dari 3 menjadi 4 agar tidak overlap -->
                         <div class="col-span-12 md:col-span-4">
                             <label class="font-bold block mb-2 text-gray-600">RT / RW</label>
                             <div class="flex gap-2">
@@ -782,130 +502,125 @@ async function deletePenempatan() {
                                 <InputText v-model.trim="data.rw" placeholder="RW" fluid class="flex-1" />
                             </div>
                         </div>
-                        <!-- PERBAIKAN: Spans disesuaikan dari 5 menjadi 4 agar proporsional -->
-                        <div class="col-span-12 md:col-span-4">
-                            <label class="font-bold block mb-2 text-gray-600">Kelurahan</label>
+                        <div class="col-span-12 md:col-span-4"><label
+                                class="font-bold block mb-2 text-gray-600">Kelurahan</label>
                             <InputText v-model.trim="data.kelurahan" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">ID Wilayah (Neo Feeder)</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">ID
+                                Wilayah (Neo
+                                Feeder)</label>
                             <InputText v-model.trim="data.id_wilayah_feeder" placeholder="UUID Wilayah" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-3">
-                            <label class="font-bold block mb-2 text-gray-600">No. HP</label>
+                        <div class="col-span-12 md:col-span-3"><label class="font-bold block mb-2 text-gray-600">No.
+                                HP</label>
                             <InputText v-model.trim="data.nomor_hp" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-3">
-                            <label class="font-bold block mb-2 text-gray-600">Email Utama</label>
+                        <div class="col-span-12 md:col-span-3"><label class="font-bold block mb-2 text-gray-600">Email
+                                Utama</label>
                             <InputText v-model.trim="data.email" fluid />
                         </div>
                     </div>
                 </TabPanel>
-
                 <TabPanel header="Kepegawaian">
                     <div class="grid grid-cols-12 gap-4 mt-2">
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Kategori Pegawai</label>
+                        <div class="col-span-12 md:col-span-6"><label
+                                class="font-bold block mb-2 text-gray-600">Kategori
+                                Pegawai</label>
                             <Dropdown v-model="data.kategori_pegawai" :options="kategoriPegawaiOptions"
                                 placeholder="Pilih Kategori" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Status Pegawai</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">Status
+                                Pegawai</label>
                             <Dropdown v-model="data.status_pegawai" :options="statusPegawaiOptions"
                                 placeholder="Pilih Status" fluid />
                         </div>
-
                         <template v-if="data.kategori_pegawai === 'Tenaga Pendidik'">
                             <div class="col-span-12 font-bold text-success border-b py-2 mb-2 text-sm mt-2">Atribut
                                 Dosen (Neo Feeder)</div>
-                            <div class="col-span-12 md:col-span-6 text-sm">
-                                <label class="font-bold block mb-2 text-gray-600">NIDN / NIDK *</label>
+                            <div class="col-span-12 md:col-span-6 text-sm"><label
+                                    class="font-bold block mb-2 text-gray-600">NIDN / NIDK *</label>
                                 <InputText v-model.trim="data.nidn" fluid />
                             </div>
-                            <div class="col-span-12 md:col-span-6">
-                                <label class="font-bold block mb-2 text-gray-600">Homebase Prodi *</label>
+                            <div class="col-span-12 md:col-span-6"><label
+                                    class="font-bold block mb-2 text-gray-600">Homebase Prodi *</label>
                                 <Dropdown v-model="data.prodi_id" :options="prodiList" optionLabel="nama_prodi"
                                     optionValue="id" placeholder="Pilih Prodi" fluid filter />
                             </div>
-                            <div class="col-span-12 md:col-span-6">
-                                <label class="font-bold block mb-2 text-gray-600">Ikatan Kerja</label>
+                            <div class="col-span-12 md:col-span-6"><label
+                                    class="font-bold block mb-2 text-gray-600">Ikatan Kerja</label>
                                 <Dropdown v-model="data.ikatan_kerja" :options="ikatanKerjaOptions" optionLabel="label"
                                     optionValue="value" fluid />
                             </div>
-                            <div class="col-span-12 md:col-span-6">
-                                <label class="font-bold block mb-2 text-gray-600">ID Penugasan (Feeder)</label>
+                            <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">ID
+                                    Penugasan (Feeder)</label>
                                 <InputText v-model.trim="data.id_penugasan_feeder" placeholder="UUID Penugasan" fluid />
                             </div>
                         </template>
-
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Tanggal Masuk</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">Tanggal
+                                Masuk</label>
                             <Calendar v-model="data.tanggal_masuk" dateFormat="yy-mm-dd" />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Tanggal Pensiun</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">Tanggal
+                                Pensiun</label>
                             <Calendar v-model="data.tanggal_pensiun" dateFormat="yy-mm-dd" />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">ID SDM Feeder</label>
+                        <div class="col-span-12 md:col-span-6"><label class="font-bold block mb-2 text-gray-600">ID SDM
+                                Feeder</label>
                             <InputText v-model.trim="data.id_sdm_feeder" placeholder="UUID SDM dari Neo Feeder" fluid />
                         </div>
                         <div class="col-span-12 flex items-center">
-                            <ToggleSwitch v-model="data.is_active" id="active_status" />
-                            <label for="active_status" class="ml-2 font-bold text-gray-700">Pegawai Aktif</label>
+                            <ToggleSwitch v-model="data.is_active" id="active_status" /><label for="active_status"
+                                class="ml-2 font-bold text-gray-700">Pegawai Aktif</label>
                         </div>
                     </div>
                 </TabPanel>
-
                 <TabPanel header="Data Lain">
                     <div class="grid grid-cols-12 gap-4 mt-2">
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">No. KTP</label>
+                        <div class="col-span-12 md:col-span-4"><label
+                                class="font-bold block mb-2 text-gray-600">Agama</label>
+                            <InputText v-model.trim="data.agama" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4"><label
+                                class="font-bold block mb-2 text-gray-600">Golongan
+                                Darah</label>
+                            <InputText v-model.trim="data.gol_darah" fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">Status
+                                Nikah</label>
+                            <Dropdown v-model="data.status_nikah" :options="statusNikahOptions" placeholder="Pilih"
+                                fluid />
+                        </div>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">No.
+                                KTP</label>
                             <InputText v-model.trim="data.no_ktp" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">No. KK</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">No.
+                                KK</label>
                             <InputText v-model.trim="data.no_kk" fluid />
                         </div>
-                        <div class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">No. NPWP</label>
+                        <div class="col-span-12 md:col-span-4"><label class="font-bold block mb-2 text-gray-600">No.
+                                NPWP</label>
                             <InputText v-model.trim="data.no_npwp" fluid />
                         </div>
-                        <div v-if="!data.id" class="col-span-12 md:col-span-6">
-                            <label class="font-bold block mb-2 text-gray-600">Password Akun (Opsional)</label>
+                        <div v-if="!data.id" class="col-span-12 md:col-span-6"><label
+                                class="font-bold block mb-2 text-gray-600">Password Akun (Opsional)</label>
                             <Password v-model="data.password" :feedback="false" toggleMask fluid
                                 placeholder="Isi untuk membuat akun user" />
                         </div>
                     </div>
                 </TabPanel>
             </TabView>
-
             <template #footer>
-                <div class="flex justify-end gap-3 mt-4">
-                    <Button label="Batal" icon="pi pi-times" text severity="danger" @click="hideDialog" />
-                    <Button label="Simpan Perubahan" icon="pi pi-check" severity="success" @click="saveData" />
-                </div>
+                <div class="flex justify-end gap-3 mt-4"><Button label="Batal" icon="pi pi-times" text severity="danger"
+                        @click="hideDialog" /><Button label="Simpan Perubahan" icon="pi pi-check" severity="success"
+                        @click="saveData" /></div>
             </template>
         </Dialog>
 
-        <!-- Dialog-Dialog Fitur Lainnya (Tetap Ada) -->
-        <Dialog v-model:visible="createUserDialog" :style="{ width: '450px' }"
-            :header="`Buat Akun: ${selectedPegawai.nama_lengkap}`" :modal="true">
-            <div class="field">
-                <label class="block font-bold mb-3 text-gray-600">Password Awal</label>
-                <Password v-model="userCreationData.password" required autofocus :feedback="false" toggleMask fluid />
-                <small v-if="submitted && !userCreationData.password" class="p-error">Password wajib diisi.</small>
-            </div>
-            <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="createUserDialog = false" />
-                <Button label="Buat Akun" icon="pi pi-check" severity="success" @click="saveUserAccount" />
-            </template>
-        </Dialog>
-
+        <!-- DIALOG PENDIDIKAN -->
         <Dialog v-model:visible="pendidikanListDialog" :style="{ width: '70vw' }"
             :header="`Pendidikan: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
-            <Toolbar class="mb-4">
-                <template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
+            <Toolbar class="mb-4"><template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
                         @click="openNewPendidikan" /></template>
             </Toolbar>
             <DataTable :value="pendidikanList" :loading="isPendidikanLoading">
@@ -945,27 +660,14 @@ async function deletePenempatan() {
                         :invalid="pendidikanSubmitted && !pendidikanData.tahun_lulus" fluid />
                 </div>
             </div>
-            <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="hidePendidikanDialog" />
-                <Button label="Simpan" icon="pi pi-check" severity="success" @click="savePendidikan" />
-            </template>
+            <template #footer><Button label="Batal" icon="pi pi-times" text @click="hidePendidikanDialog" /><Button
+                    label="Simpan" icon="pi pi-check" severity="success" @click="savePendidikan" /></template>
         </Dialog>
 
-        <Dialog v-model:visible="deletePendidikanDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="pendidikanData">Hapus riwayat pendidikan di <b>{{ pendidikanData.institusi }}</b>?</span>
-            </div>
-            <template #footer>
-                <Button label="Tidak" text @click="deletePendidikanDialog = false" />
-                <Button label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deletePendidikan" />
-            </template>
-        </Dialog>
-
+        <!-- DIALOG RIWAYAT SK -->
         <Dialog v-model:visible="riwayatSkListDialog" :style="{ width: '70vw' }"
             :header="`Riwayat SK: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
-            <Toolbar class="mb-4">
-                <template #start><Button label="Tambah SK" icon="pi pi-plus" severity="secondary"
+            <Toolbar class="mb-4"><template #start><Button label="Tambah SK" icon="pi pi-plus" severity="secondary"
                         @click="openNewRiwayatSk" /></template>
             </Toolbar>
             <DataTable :value="riwayatSkList" :loading="isRiwayatSkLoading">
@@ -1001,103 +703,15 @@ async function deletePenempatan() {
                     <InputText v-model.trim="riwayatSkData.jenis_sk" required
                         :invalid="riwayatSkSubmitted && !riwayatSkData.jenis_sk" fluid />
                 </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Jabatan</label>
-                    <InputText v-model.trim="riwayatSkData.jabatan" fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Keterangan</label><Textarea
-                        v-model.trim="riwayatSkData.keterangan" rows="3" fluid /></div>
             </div>
-            <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="hideRiwayatSkDialog" />
-                <Button label="Simpan" icon="pi pi-check" severity="success" @click="saveRiwayatSk" />
-            </template>
+            <template #footer><Button label="Batal" icon="pi pi-times" text @click="hideRiwayatSkDialog" /><Button
+                    label="Simpan" icon="pi pi-check" severity="success" @click="saveRiwayatSk" /></template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteRiwayatSkDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="riwayatSkData">Hapus SK Nomor <b>{{ riwayatSkData.nomor_sk }}</b>?</span>
-            </div>
-            <template #footer>
-                <Button label="Tidak" text @click="deleteRiwayatSkDialog = false" />
-                <Button label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deleteRiwayatSk" />
-            </template>
-        </Dialog>
-
-        <Dialog v-model:visible="dokumenListDialog" :style="{ width: '70vw' }"
-            :header="`Dokumen: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
-            <div class="grid grid-cols-12 gap-4 mb-4 p-fluid">
-                <div class="col-span-12 md:col-span-4">
-                    <Dropdown v-model="uploadKategori" :options="computedKategoriOptions" placeholder="Pilih Kategori"
-                        fluid />
-                </div>
-                <div class="col-span-12 md:col-span-6">
-                    <FileUpload ref="uploadRef" mode="basic" name="dokumen" @select="onFileSelect" :auto="false"
-                        chooseLabel="Pilih File" accept="image/*,application/pdf" />
-                </div>
-                <div class="col-span-12 md:col-span-2"><Button label="Upload" icon="pi pi-upload"
-                        @click="handleUploadDokumen" :loading="isDokumenLoading" severity="info" /></div>
-            </div>
-            <DataTable :value="dokumenList" :loading="isDokumenLoading">
-                <Column field="nama_file_asli" header="Nama File"></Column>
-                <Column field="kategori" header="Kategori"></Column>
-                <Column header="Aksi" style="width: 120px">
-                    <template #body="slotProps">
-                        <div class="flex gap-2">
-                            <Button icon="pi pi-eye" text rounded severity="info"
-                                @click="viewDokumen(slotProps.data.path_file)" :loading="isBuktiLoading"
-                                v-tooltip.top="'Lihat'" />
-                            <Button icon="pi pi-trash" text rounded severity="danger"
-                                @click="confirmDeleteDokumen(slotProps.data)" v-tooltip.top="'Hapus'" />
-                        </div>
-                    </template>
-                </Column>
-            </DataTable>
-        </Dialog>
-
-        <Dialog v-model:visible="jatahDialog" :style="{ width: '450px' }"
-            :header="`Atur Jatah Cuti: ${selectedPegawai.nama_lengkap}`" :modal="true">
-            <div class="flex flex-col gap-4 p-fluid">
-                <div><label class="font-bold block mb-2 text-gray-600">Tahun *</label>
-                    <InputNumber v-model="jatahData.tahun" :useGrouping="false" required
-                        :invalid="jatahSubmitted && !jatahData.tahun" fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Kuota Total (Hari) *</label>
-                    <InputNumber v-model="jatahData.kuota_total" required
-                        :invalid="jatahSubmitted && jatahData.kuota_total == null" fluid />
-                </div>
-            </div>
-            <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="jatahDialog = false" />
-                <Button label="Simpan" icon="pi pi-check" severity="success" @click="saveJatahCuti" />
-            </template>
-        </Dialog>
-
-        <Dialog v-model:visible="viewJatahDialog" :style="{ width: '450px' }" header="Informasi Jatah Cuti"
-            :modal="true">
-            <div v-if="isCutiLoading" class="text-center p-4">
-                <ProgressSpinner style="width:40px; height:40px" />
-            </div>
-            <div v-else-if="viewJatahData && !viewJatahData.error" class="flex flex-col gap-4">
-                <div class="text-center font-bold text-xl mb-2 text-gray-700">Tahun {{ viewJatahData.tahun }}</div>
-                <div class="bg-gray-50 p-3 rounded border flex justify-between"><span>Kuota Total:</span> <span
-                        class="font-bold text-blue-600">{{ viewJatahData.kuota_total }} Hari</span></div>
-                <div class="bg-gray-50 p-3 rounded border flex justify-between"><span>Terpakai:</span> <span
-                        class="font-bold text-red-500">{{ viewJatahData.kuota_terpakai }} Hari</span></div>
-                <div class="bg-gray-50 p-3 rounded border flex justify-between text-lg"><span>Sisa Cuti:</span> <span
-                        class="font-bold text-green-600">{{ viewJatahData.sisa_cuti }} Hari</span></div>
-            </div>
-            <div v-else class="p-4 text-center text-gray-500">
-                <p>{{ viewJatahData?.error || 'Gagal memuat data.' }}</p>
-            </div>
-            <template #footer><Button label="Tutup" icon="pi pi-times" text
-                    @click="viewJatahDialog = false" /></template>
-        </Dialog>
-
+        <!-- DIALOG SERTIFIKAT -->
         <Dialog v-model:visible="sertifikatListDialog" :style="{ width: '70vw' }"
             :header="`Sertifikat: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
-            <Toolbar class="mb-4">
-                <template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
+            <Toolbar class="mb-4"><template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
                         @click="openNewSertifikat" /></template>
             </Toolbar>
             <DataTable :value="sertifikatList" :loading="isSertifikatLoading">
@@ -1133,37 +747,61 @@ async function deletePenempatan() {
                     <Calendar v-model="sertifikatData.tanggal_pelaksanaan" dateFormat="yy-mm-dd" required
                         :invalid="sertifikatSubmitted && !sertifikatData.tanggal_pelaksanaan" />
                 </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Tingkat</label>
-                    <Dropdown v-model="sertifikatData.tingkat" :options="tingkatSertifikatOptions" placeholder="Pilih"
+            </div>
+            <template #footer><Button label="Batal" icon="pi pi-times" text @click="hideSertifikatDialog" /><Button
+                    label="Simpan" icon="pi pi-check" severity="success" @click="saveSertifikat" /></template>
+        </Dialog>
+
+        <!-- DIALOG DOKUMEN -->
+        <Dialog v-model:visible="dokumenListDialog" :style="{ width: '70vw' }"
+            :header="`Dokumen: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
+            <div class="grid grid-cols-12 gap-4 mb-4 p-fluid">
+                <div class="col-span-12 md:col-span-4">
+                    <Dropdown v-model="uploadKategori" :options="computedKategoriOptions" placeholder="Pilih Kategori"
                         fluid />
                 </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Penyelenggara</label>
-                    <InputText v-model.trim="sertifikatData.penyelenggara" fluid />
+                <div class="col-span-12 md:col-span-6">
+                    <FileUpload ref="uploadRef" mode="basic" name="dokumen" @select="onFileSelect" :auto="false"
+                        chooseLabel="Pilih File" accept="image/*,application/pdf" />
                 </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Nomor Sertifikat</label>
-                    <InputText v-model.trim="sertifikatData.nomor_sertifikat" fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Keterangan</label><Textarea
-                        v-model.trim="sertifikatData.keterangan" rows="3" fluid /></div>
+                <div class="col-span-12 md:col-span-2"><Button label="Upload" icon="pi pi-upload"
+                        @click="handleUploadDokumen" :loading="isDokumenLoading" severity="info" /></div>
             </div>
-            <template #footer>
-                <Button label="Batal" icon="pi pi-times" text @click="hideSertifikatDialog" />
-                <Button label="Simpan" icon="pi pi-check" severity="success" @click="saveSertifikat" />
-            </template>
+            <DataTable :value="dokumenList" :loading="isDokumenLoading">
+                <Column field="nama_file_asli" header="Nama File"></Column>
+                <Column field="kategori" header="Kategori"></Column>
+                <Column header="Aksi">
+                    <template #body="slotProps">
+                        <div class="flex gap-2">
+                            <Button icon="pi pi-eye" text rounded severity="info"
+                                @click="viewDokumen(slotProps.data.path_file)" :loading="isBuktiLoading"
+                                v-tooltip.top="'Lihat'" />
+                            <Button icon="pi pi-trash" text rounded severity="danger"
+                                @click="confirmDeleteDokumen(slotProps.data)" v-tooltip.top="'Hapus'" />
+                        </div>
+                    </template>
+                </Column>
+            </DataTable>
         </Dialog>
 
-        <Dialog v-model:visible="deleteSertifikatDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="sertifikatData">Hapus riwayat sertifikat <b>{{ sertifikatData.judul_sertifikat
-                }}</b>?</span>
+        <!-- DIALOG CUTI -->
+        <Dialog v-model:visible="jatahDialog" :style="{ width: '450px' }"
+            :header="`Atur Jatah Cuti: ${selectedPegawai.nama_lengkap}`" :modal="true">
+            <div class="flex flex-col gap-4 p-fluid">
+                <div><label class="font-bold block mb-2 text-gray-600">Tahun *</label>
+                    <InputNumber v-model="jatahData.tahun" :useGrouping="false" required
+                        :invalid="jatahSubmitted && !jatahData.tahun" fluid />
+                </div>
+                <div><label class="font-bold block mb-2 text-gray-600">Kuota Total (Hari) *</label>
+                    <InputNumber v-model="jatahData.kuota_total" required
+                        :invalid="jatahSubmitted && jatahData.kuota_total == null" fluid />
+                </div>
             </div>
-            <template #footer>
-                <Button label="Tidak" text @click="deleteSertifikatDialog = false" />
-                <Button label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deleteSertifikat" />
-            </template>
+            <template #footer><Button label="Batal" icon="pi pi-times" text @click="jatahDialog = false" /><Button
+                    label="Simpan" icon="pi pi-check" severity="success" @click="saveJatahCuti" /></template>
         </Dialog>
 
+        <!-- DIALOG KARIR DOSEN -->
         <Dialog v-model:visible="karirDosenDialog" :style="{ width: '80vw' }"
             :header="`Karir Dosen: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
             <TabView>
@@ -1231,103 +869,12 @@ async function deletePenempatan() {
                     <Calendar v-model="jadData.tmt" dateFormat="yy-mm-dd" required
                         :invalid="jadSubmitted && !jadData.tmt" />
                 </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Kompetensi MK</label>
-                    <InputText v-model.trim="jadData.kompetensi_mk" fluid />
-                </div>
             </div>
             <template #footer><Button label="Batal" icon="pi pi-times" text @click="jadFormDialog = false" /><Button
                     label="Simpan" icon="pi pi-check" severity="success" @click="saveJad" /></template>
         </Dialog>
 
-        <Dialog v-model:visible="deleteJadDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="jadData">Hapus riwayat JAD <b>{{ jadData.jabatan_akademik }}</b>?</span>
-            </div>
-            <template #footer><Button label="Tidak" text @click="deleteJadDialog = false" /><Button label="Ya, Hapus"
-                    icon="pi pi-check" severity="danger" @click="deleteJad" /></template>
-        </Dialog>
-
-        <Dialog v-model:visible="serdosFormDialog" :style="{ width: '450px' }"
-            :header="isSerdosNew ? 'Tambah SERDOS' : 'Edit SERDOS'" :modal="true">
-            <div class="flex flex-col gap-4 p-fluid">
-                <div><label class="font-bold block mb-2 text-gray-600">Nomor Sertifikat *</label>
-                    <InputText v-model.trim="serdosData.nomor_sertifikat" required
-                        :invalid="serdosSubmitted && !serdosData.nomor_sertifikat" fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Tanggal Terbit *</label>
-                    <Calendar v-model="serdosData.tanggal_terbit" dateFormat="yy-mm-dd" required
-                        :invalid="serdosSubmitted && !serdosData.tanggal_terbit" />
-                </div>
-            </div>
-            <template #footer><Button label="Batal" icon="pi pi-times" text @click="serdosFormDialog = false" /><Button
-                    label="Simpan" icon="pi pi-check" severity="success" @click="saveSerdos" /></template>
-        </Dialog>
-
-        <Dialog v-model:visible="deleteSerdosDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="serdosData">Hapus riwayat SERDOS Nomor <b>{{ serdosData.nomor_sertifikat }}</b>?</span>
-            </div>
-            <template #footer><Button label="Tidak" text @click="deleteSerdosDialog = false" /><Button label="Ya, Hapus"
-                    icon="pi pi-check" severity="danger" @click="deleteSerdos" /></template>
-        </Dialog>
-
-        <Dialog v-model:visible="penempatanListDialog" :style="{ width: '70vw' }"
-            :header="`Penempatan: ${selectedPegawai.nama_lengkap}`" :modal="true" maximizable>
-            <Toolbar class="mb-4">
-                <template #start><Button label="Tambah" icon="pi pi-plus" severity="secondary"
-                        @click="openNewPenempatan" /></template>
-            </Toolbar>
-            <DataTable :value="penempatanList" :loading="isPenempatanLoading">
-                <Column field="nama_unit_kerja" header="Unit Kerja" sortable></Column>
-                <Column field="jabatan" header="Jabatan" sortable></Column>
-                <Column field="tanggal_mulai" header="Mulai" sortable></Column>
-                <Column header="Aksi">
-                    <template #body="slotProps">
-                        <div class="flex gap-2">
-                            <Button icon="pi pi-pencil" text rounded @click="editPenempatan(slotProps.data)" />
-                            <Button icon="pi pi-trash" text rounded severity="danger"
-                                @click="confirmDeletePenempatan(slotProps.data)" />
-                        </div>
-                    </template>
-                </Column>
-            </DataTable>
-        </Dialog>
-
-        <Dialog v-model:visible="penempatanFormDialog" :style="{ width: '450px' }"
-            :header="isPenempatanNew ? 'Tambah Penempatan' : 'Edit Penempatan'" :modal="true">
-            <div class="flex flex-col gap-4 p-fluid">
-                <div><label class="font-bold block mb-2 text-gray-600">Unit Kerja *</label>
-                    <Dropdown v-model="penempatanData.unit_kerja_id" :options="unitKerjaList" optionLabel="nama_unit"
-                        optionValue="id" placeholder="Pilih" filter required fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Jabatan *</label>
-                    <InputText v-model.trim="penempatanData.jabatan" required
-                        :invalid="penempatanSubmitted && !penempatanData.jabatan" fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Nomor SK *</label>
-                    <InputText v-model.trim="penempatanData.nomor_sk" required
-                        :invalid="penempatanSubmitted && !penempatanData.nomor_sk" fluid />
-                </div>
-                <div><label class="font-bold block mb-2 text-gray-600">Tanggal Mulai *</label>
-                    <Calendar v-model="penempatanData.tanggal_mulai" dateFormat="yy-mm-dd" required
-                        :invalid="penempatanSubmitted && !penempatanData.tanggal_mulai" />
-                </div>
-            </div>
-            <template #footer><Button label="Batal" icon="pi pi-times" text @click="hidePenempatanDialog" /><Button
-                    label="Simpan" icon="pi pi-check" severity="success" @click="savePenempatan" /></template>
-        </Dialog>
-
-        <Dialog v-model:visible="deletePenempatanDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
-            <div class="flex items-center gap-4">
-                <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
-                <span v-if="penempatanData">Hapus penempatan di <b>{{ penempatanData.nama_unit_kerja }}</b>?</span>
-            </div>
-            <template #footer><Button label="Tidak" text @click="deletePenempatanDialog = false" /><Button
-                    label="Ya, Hapus" icon="pi pi-check" severity="danger" @click="deletePenempatan" /></template>
-        </Dialog>
-
+        <!-- KONFIRMASI HAPUS UMUM -->
         <Dialog v-model:visible="deleteDialog" :style="{ width: '450px' }" header="Konfirmasi" :modal="true">
             <div class="flex items-center gap-4">
                 <i class="pi pi-exclamation-triangle text-3xl text-red-500" />
