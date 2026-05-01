@@ -202,7 +202,7 @@ const router = createRouter({
                     path: '/sdm/biometrik-audit',
                     name: 'biometrik-audit',
                     component: () => import('@/views/sdm/BiometrikAudit.vue'),
-                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'] }
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Biometrik Audit' }
                 }
             ]
         },
