@@ -70,6 +70,18 @@ export const useAbsensiStore = defineStore('absensi', {
             } finally {
                 this.isLoading = false;
             }
+        },
+        // Daftar Status Biometrik ---
+        async fetchBiometrikStatus() {
+            this.isLoading = true;
+            try {
+                const response = await apiClient.get('/sdm/absensi/biometrik-status');
+                this.biometrikList = response.data;
+            } catch (e) {
+                this.error = 'Gagal mengambil status biometrik.';
+            } finally {
+                this.isLoading = false;
+            }
         }
     }
 });

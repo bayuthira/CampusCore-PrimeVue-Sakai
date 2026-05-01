@@ -97,6 +97,7 @@ const fullMenu = [
         roles: ['SUPER_ADMIN', 'STAF_BASDM'],
         items: [
             { label: 'Manajemen Pegawai', icon: 'pi pi-fw pi-users', to: '/sdm/pegawai', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
+            { label: 'Verifikasi Biometrik', icon: 'pi pi-fw pi-camera', to: '/sdm/biometrik-audit', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Rekap Absensi', icon: 'pi pi-fw pi-calendar', to: '/sdm/absensi', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Laporan Absensi', icon: 'pi pi-fw pi-chart-bar', to: '/sdm/laporan-absensi', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
             { label: 'Persetujuan Cuti', icon: 'pi pi-fw pi-check-square', to: '/sdm/persetujuan-cuti', roles: ['SUPER_ADMIN', 'STAF_BASDM'] },
