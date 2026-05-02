@@ -48,7 +48,13 @@ const fullMenu = [
                 icon: 'pi pi-fw pi-check-square',
                 to: '/akademik/persetujuan-krs',
                 roles: ['DOSEN']
-            }
+            },
+            {
+                label: 'Manajemen RPS',
+                icon: 'pi pi-fw pi-copy',
+                to: '/akademik/rps',
+                roles: ['SUPER_ADMIN', 'KAPRODI', 'DOSEN']
+            },
         ]
     },
     {

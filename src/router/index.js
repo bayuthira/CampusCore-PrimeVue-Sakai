@@ -203,6 +203,17 @@ const router = createRouter({
                     name: 'biometrik-audit',
                     component: () => import('@/views/sdm/BiometrikAudit.vue'),
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_BASDM'], title: 'Biometrik Audit' }
+                },
+                {
+                    path: '/akademik/rps',
+                    name: 'manajemen-rps',
+                    component: () => import('@/views/akademik/ManajemenRps.vue'),
+                    meta: {
+                        requiresAuth: true,
+                        // Mengizinkan Super Admin, Kaprodi, dan Dosen untuk mengelola RPS
+                        roles: ['SUPER_ADMIN', 'KAPRODI', 'DOSEN'],
+                        title: 'Manajemen RPS'
+                    }
                 }
             ]
         },
