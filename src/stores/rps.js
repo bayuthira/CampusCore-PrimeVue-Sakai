@@ -80,6 +80,19 @@ export const useRpsStore = defineStore('rps', {
             } finally {
                 this.isLoading = false;
             }
+        },
+
+        // --- Cetak & Preview (Metode Blob Aman dengan Token) ---
+        async fetchPrintHtml(mataKuliahId) {
+            try {
+                const response = await apiClient.get(`/matakuliah/${mataKuliahId}/rps/print`, {
+                    responseType: 'blob'
+                });
+                return URL.createObjectURL(new Blob([response.data], { type: 'text/html' }));
+            } catch (e) {
+                console.error('Gagal mengambil format cetak:', e);
+                return null;
+            }
         }
     }
 });

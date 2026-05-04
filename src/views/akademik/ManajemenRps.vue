@@ -22,6 +22,7 @@ const selectedMk = ref(null);
 const weeklyData = ref({});
 const verifyData = ref({ status_verifikasi: 'Disetujui', catatan: '' });
 const submitted = ref(false);
+const isPrintLoading = ref(false);
 
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
@@ -119,9 +120,24 @@ async function handleVerify() {
     } catch (e) { }
 }
 
-function handlePrint() {
-    const url = `${import.meta.env.VITE_API_BASE_URL}/matakuliah/${selectedMk.value.id}/rps/print`;
-    window.open(url, '_blank');
+// PERBAIKAN: Menggunakan Blob agar Token terkirim dan tidak error 401/403
+async function handlePrint() {
+    isPrintLoading.value = true;
+    try {
+        const blobUrl = await rpsStore.fetchPrintHtml(selectedMk.value.id);
+        if (blobUrl) {
+            const newTab = window.open(blobUrl, '_blank');
+            if (newTab) {
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            }
+        } else {
+            toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal men-generate dokumen RPS.', life: 3000 });
+        }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Terjadi kesalahan sistem.', life: 3000 });
+    } finally {
+        isPrintLoading.value = false;
+    }
 }
 
 function getStatusSeverity(status) {
@@ -224,13 +240,12 @@ function getStatusSeverity(status) {
                 </div>
             </TabPanel>
 
-            <!-- TAB 2: INFORMASI UMUM (PERBAIKAN UI TEXTAREA) -->
+            <!-- TAB 2: INFORMASI UMUM (UI REVISED - TEXTAREA WIDTH FIX) -->
             <TabPanel header="Informasi Umum">
                 <div class="mt-4" v-if="header">
                     <div class="grid grid-cols-12 gap-8">
                         <!-- Kolom Kiri -->
                         <div class="col-span-12 lg:col-span-6 flex flex-col gap-8">
-                            <!-- Section: Deskripsi -->
                             <div
                                 class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                                 <div
@@ -241,17 +256,13 @@ function getStatusSeverity(status) {
                                         </div>
                                         <span class="font-bold text-slate-700">Deskripsi Singkat Mata Kuliah</span>
                                     </div>
-                                    <i class="pi pi-info-circle text-slate-400"
-                                        v-tooltip="'Ringkasan materi dan fokus utama'"></i>
                                 </div>
-                                <div class="p-fluid flex-grow">
-                                    <Textarea v-model="header.deskripsi_singkat" rows="6" autoResize
-                                        class="custom-textarea w-full"
-                                        placeholder="Jelaskan ringkasan materi, fokus pembelajaran, dan urgensi mata kuliah ini..." />
-                                </div>
+                                <!-- PERBAIKAN: Menghilangkan container p-fluid agar textarea mengisi seluruh lebar card -->
+                                <Textarea v-model="header.deskripsi_singkat" rows="6" autoResize fluid
+                                    class="custom-textarea"
+                                    placeholder="Jelaskan ringkasan materi, fokus pembelajaran, dan urgensi mata kuliah ini..." />
                             </div>
 
-                            <!-- Section: Pustaka Utama -->
                             <div
                                 class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                                 <div
@@ -263,17 +274,14 @@ function getStatusSeverity(status) {
                                         <span class="font-bold text-slate-700">Daftar Pustaka Utama</span>
                                     </div>
                                 </div>
-                                <div class="p-fluid flex-grow">
-                                    <Textarea v-model="header.pustaka_utama" rows="5" autoResize
-                                        class="custom-textarea w-full"
-                                        placeholder="Tuliskan referensi buku wajib, modul, atau sumber utama lainnya..." />
-                                </div>
+                                <Textarea v-model="header.pustaka_utama" rows="5" autoResize fluid
+                                    class="custom-textarea"
+                                    placeholder="Tuliskan referensi buku wajib, modul, atau sumber utama lainnya..." />
                             </div>
                         </div>
 
                         <!-- Kolom Kanan -->
                         <div class="col-span-12 lg:col-span-6 flex flex-col gap-8">
-                            <!-- Section: CPMK -->
                             <div
                                 class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                                 <div
@@ -285,14 +293,11 @@ function getStatusSeverity(status) {
                                         <span class="font-bold text-slate-700">Capaian Pembelajaran (CPMK)</span>
                                     </div>
                                 </div>
-                                <div class="p-fluid flex-grow">
-                                    <Textarea v-model="header.capaian_pembelajaran" rows="6" autoResize
-                                        class="custom-textarea w-full"
-                                        placeholder="Tuliskan kemampuan akhir yang diharapkan dikuasai mahasiswa..." />
-                                </div>
+                                <Textarea v-model="header.capaian_pembelajaran" rows="6" autoResize fluid
+                                    class="custom-textarea"
+                                    placeholder="Tuliskan kemampuan akhir yang diharapkan dikuasai mahasiswa..." />
                             </div>
 
-                            <!-- Section: Pustaka Pendukung -->
                             <div
                                 class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                                 <div
@@ -304,11 +309,9 @@ function getStatusSeverity(status) {
                                         <span class="font-bold text-slate-700">Daftar Pustaka Pendukung</span>
                                     </div>
                                 </div>
-                                <div class="p-fluid flex-grow">
-                                    <Textarea v-model="header.pustaka_pendukung" rows="5" autoResize
-                                        class="custom-textarea w-full"
-                                        placeholder="Jurnal, website, atau artikel ilmiah yang mendukung pembelajaran..." />
-                                </div>
+                                <Textarea v-model="header.pustaka_pendukung" rows="5" autoResize fluid
+                                    class="custom-textarea"
+                                    placeholder="Jurnal, website, atau artikel ilmiah yang mendukung pembelajaran..." />
                             </div>
                         </div>
                     </div>
@@ -378,7 +381,7 @@ function getStatusSeverity(status) {
                     </p>
                     <div class="flex gap-4">
                         <Button label="Buka Format Cetak (HTML)" icon="pi pi-external-link" severity="help" size="large"
-                            @click="handlePrint" />
+                            @click="handlePrint" :loading="isPrintLoading" />
                     </div>
                 </div>
             </TabPanel>
@@ -456,9 +459,9 @@ function getStatusSeverity(status) {
     padding: 1.5rem 0;
 }
 
-/* Custom Styling for Textarea */
+/* Custom Styling for Textarea - Diperbarui agar width 100% konsisten */
 .custom-textarea {
-    width: 100%;
+    width: 100% !important;
     background-color: transparent;
     border: none;
     transition: all 0.2s ease;
@@ -467,6 +470,7 @@ function getStatusSeverity(status) {
     padding: 1.25rem;
     color: #334155;
     border-radius: 0;
+    box-shadow: none !important;
 }
 
 .custom-textarea:focus {
@@ -474,12 +478,8 @@ function getStatusSeverity(status) {
     background-color: #fafbfc;
 }
 
-/* Menghilangkan shadow default PrimeVue Textarea agar bersih */
-:deep(.p-textarea) {
+:deep(.p-textarea:not(.p-invalid):focus) {
+    border: none !important;
     box-shadow: none !important;
-}
-
-:deep(.p-fluid .p-textarea) {
-    width: 100%;
 }
 </style>
