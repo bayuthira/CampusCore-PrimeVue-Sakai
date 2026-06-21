@@ -76,6 +76,18 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'], title: 'Jadwal Kuliah' }
                 },
                 {
+                    path: '/pembelajaran/proses',
+                    name: 'proses-pembelajaran',
+                    component: () => import('@/views/pembelajaran/ProsesPembelajaran.vue'),
+                    meta: { requiresAuth: true, roles: ['DOSEN'], title: 'Proses Pembelajaran' }
+                },
+                {
+                    path: '/pembelajaran/presensi',
+                    name: 'presensi-kuliah',
+                    component: () => import('@/views/pembelajaran/PresensiKuliah.vue'),
+                    meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'Presensi Kuliah' }
+                },
+                {
                     path: '/akademik/tahun-akademik',
                     name: 'tahun-akademik',
                     component: () => import('@/views/akademik/TahunAkademik.vue'),

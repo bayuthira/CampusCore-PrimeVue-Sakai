@@ -12,6 +12,8 @@ endpoint yang digunakan di direktori `src/stores`.
 
 - Akademik: mahasiswa, dosen, program studi, mata kuliah, kurikulum, jadwal,
   rombongan belajar, KRS, dosen PA, dan RPS.
+- Pembelajaran: pertemuan kuliah, jurnal/BAP, presensi dosen, kode presensi
+  mahasiswa dinamis, serta rekap realisasi tatap muka.
 - SDM: pegawai, unit kerja, cuti, izin, absensi, biometrik, surat tugas, dan SPPD.
 - Sarana: aset, barang habis pakai, ruangan, kendaraan, dan penjadwalannya.
 - Administrasi: pengguna, role, dokumen, dan kontrol akses berbasis peran.
@@ -35,6 +37,55 @@ npm run dev
 
 Sesuaikan `VITE_API_BASE_URL` di `.env` dengan alamat backend. Vite biasanya
 menjalankan aplikasi di `http://localhost:5173`.
+
+Backend harus menggunakan versi yang sudah memiliki migration tabel
+`pertemuan_kuliah`, `presensi_dosen_kuliah`, `sesi_presensi_mahasiswa`, dan
+`presensi_mahasiswa_kuliah`. Terapkan migration backend sebelum memakai menu
+Pembelajaran. Migration tersebut bersifat aditif dan tidak mengganti workflow
+CRUD jadwal kuliah yang sudah ada.
+
+## Alur modul pembelajaran
+
+Modul ini menggunakan jadwal kuliah dan KRS yang sudah ada sebagai sumber
+kelas dan peserta. Akses menu ditentukan berdasarkan role:
+
+| Role | Menu | Kemampuan |
+| --- | --- | --- |
+| `DOSEN` | Proses Pembelajaran | Membuat pertemuan, mengisi BAP, membuka atau menutup sesi, serta mengoreksi presensi mahasiswa. |
+| `MAHASISWA` | Presensi Kuliah | Melakukan check-in menggunakan kode dinamis dari dosen. |
+
+Pada menu Manajemen RPS, dosen hanya melihat mata kuliah yang diampu pada tahun
+akademik aktif. Dosen berperan `Anggota` memiliki akses baca, sedangkan dosen
+berperan `Koordinator` dapat mengubah informasi RPS, matriks mingguan, dan
+dokumen. Kaprodi dapat melihat serta memverifikasi RPS dalam lingkup prodinya.
+Semua pembatasan tersebut divalidasi kembali oleh backend. Perubahan pada RPS
+yang pernah disetujui atau ditolak akan mengembalikan statusnya menjadi
+`Menunggu Verifikasi` jika dokumen RPS sudah tersedia.
+
+Alur penggunaan dosen:
+
+1. RPS mata kuliah diunggah dan disetujui terlebih dahulu.
+2. Dosen membuka menu **Perkuliahan → Proses Pembelajaran**.
+3. Dosen membuat pertemuan dan membuka sesi. Presensi dosen tercatat otomatis.
+4. Sistem membuat kode presensi delapan karakter yang berlaku selama 10 menit.
+5. Setelah perkuliahan, dosen melengkapi topik realisasi dan BAP, lalu menutup
+   pertemuan.
+
+Mahasiswa hanya dapat melakukan check-in jika KRS-nya berstatus `Disetujui`,
+pertemuan sedang dibuka, dan kode belum kedaluwarsa. Presensi manual oleh dosen
+juga hanya tersedia selama pertemuan dibuka. Setelah ditutup, BAP dan presensi
+dikunci serta realisasi tatap muka dosen pengampu diperbarui.
+
+> **Gate RPS:** dosen tetap dapat melihat status kelas pada daftar, tetapi
+> seluruh proses pertemuan untuk kelas tersebut ditolak oleh backend sampai
+> status RPS menjadi `Disetujui`. Saat ini status tersebut mengikuti RPS pada
+> master mata kuliah, belum versi RPS per semester.
+
+RPS diperlakukan sebagai dokumen master yang dapat digunakan kembali pada
+tahun-tahun akademik berikutnya. Pergantian tahun akademik tidak mewajibkan
+duplikasi RPS. Model saat ini belum menyimpan versi per kurikulum; ketika
+kebutuhan itu muncul, skema harus ditambah agar RPS lama tetap menjadi histori
+dan perubahan kurikulum menghasilkan versi baru, bukan menimpa versi lama.
 
 ## Konfigurasi
 

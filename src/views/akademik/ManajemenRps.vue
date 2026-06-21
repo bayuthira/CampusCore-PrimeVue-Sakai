@@ -1,6 +1,4 @@
 <script setup>
-import { useAuthStore } from '@/stores/auth';
-import { useMataKuliahStore } from '@/stores/matakuliah';
 import { useRpsStore } from '@/stores/rps';
 import { FilterMatchMode } from '@primevue/core/api';
 import { storeToRefs } from 'pinia';
@@ -8,12 +6,9 @@ import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
 
 const toast = useToast();
-const authStore = useAuthStore();
-const mkStore = useMataKuliahStore();
 const rpsStore = useRpsStore();
 
-const { mataKuliahList, isLoading: mkLoading } = storeToRefs(mkStore);
-const { header, weeklyMatrix, isLoading: rpsLoading } = storeToRefs(rpsStore);
+const { mataKuliahList, header, weeklyMatrix, isLoading: rpsLoading } = storeToRefs(rpsStore);
 
 const rpsDialog = ref(false);
 const weeklyFormDialog = ref(false);
@@ -29,10 +24,11 @@ const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
-const isManager = computed(() => authStore.userData?.roles.some(r => ['SUPER_ADMIN', 'KAPRODI'].includes(r)));
+const canEdit = computed(() => selectedMk.value?.can_edit === true);
+const canVerify = computed(() => selectedMk.value?.can_verify === true);
 
 onMounted(() => {
-    mkStore.fetchMataKuliah();
+    rpsStore.fetchMataKuliah();
 });
 
 // --- Alur Kelola RPS ---
@@ -104,7 +100,7 @@ async function onRpsUpload(event) {
 
     try {
         await rpsStore.uploadRpsFile(selectedMk.value.id, formData);
-        await mkStore.fetchMataKuliah();
+        await rpsStore.fetchMataKuliah();
         selectedMk.value = mataKuliahList.value.find((mk) => mk.id === selectedMk.value.id) || selectedMk.value;
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'File RPS diunggah, menunggu verifikasi', life: 3000 });
     } catch (e) {
@@ -169,7 +165,7 @@ async function handleVerify() {
         toast.add({ severity: 'success', summary: 'Berhasil', detail: `RPS telah ${verifyData.value.status_verifikasi}`, life: 3000 });
         verifyDialog.value = false;
         rpsDialog.value = false;
-        mkStore.fetchMataKuliah();
+        rpsStore.fetchMataKuliah();
     } catch (e) {
         toast.add({ severity: 'error', summary: 'Gagal', detail: e.response?.data?.error || 'Gagal memverifikasi RPS.', life: 3000 });
     }
@@ -207,7 +203,7 @@ function getStatusSeverity(status) {
 
 <template>
     <div class="card shadow-sm border-0">
-        <DataTable :value="mataKuliahList" :loading="mkLoading" paginator :rows="10" v-model:filters="filters"
+        <DataTable :value="mataKuliahList" :loading="rpsLoading" paginator :rows="10" v-model:filters="filters"
             stripedRows class="p-datatable-sm">
             <template #header>
                 <div class="flex justify-between items-center">
@@ -222,6 +218,12 @@ function getStatusSeverity(status) {
             <Column field="kode_mk" header="Kode" sortable class="font-mono font-bold"></Column>
             <Column field="nama_mk" header="Mata Kuliah" sortable></Column>
             <Column field="nama_prodi" header="Prodi" sortable></Column>
+            <Column field="peran_pengampu" header="Akses">
+                <template #body="slotProps">
+                    <Tag :value="slotProps.data.peran_pengampu || 'Lihat'"
+                        :severity="slotProps.data.can_edit ? 'success' : slotProps.data.can_verify ? 'info' : 'secondary'" />
+                </template>
+            </Column>
             <Column field="status_verifikasi_rps" header="Status RPS">
                 <template #body="slotProps">
                     <Tag :value="slotProps.data.status_verifikasi_rps || 'Belum Ada'"
@@ -230,7 +232,8 @@ function getStatusSeverity(status) {
             </Column>
             <Column header="Aksi" class="text-center">
                 <template #body="slotProps">
-                    <Button label="Kelola RPS" icon="pi pi-file-edit" outlined size="small"
+                    <Button :label="slotProps.data.can_edit ? 'Kelola RPS' : 'Lihat RPS'"
+                        :icon="slotProps.data.can_edit ? 'pi pi-file-edit' : 'pi pi-eye'" outlined size="small"
                         @click="openRpsManager(slotProps.data)" />
                 </template>
             </Column>
@@ -254,7 +257,7 @@ function getStatusSeverity(status) {
                                 <i class="pi pi-cloud-upload text-primary"></i>
                                 Upload Dokumen RPS (Fisik)
                             </h5>
-                            <FileUpload mode="basic" name="file" accept=".pdf,.doc,.docx" :maxFileSize="5000000"
+                            <FileUpload v-if="canEdit" mode="basic" name="file" accept=".pdf,.doc,.docx" :maxFileSize="5000000"
                                 customUpload @uploader="onRpsUpload" auto
                                 :chooseLabel="selectedMk?.file_rps_path ? 'Ganti Dokumen RPS' : 'Pilih & Upload RPS'"
                                 class="w-full" />
@@ -304,7 +307,7 @@ function getStatusSeverity(status) {
                                         }}</p>
                                 </div>
                             </div>
-                            <div v-if="isManager && selectedMk?.file_rps_path && selectedMk?.status_verifikasi_rps === 'Menunggu Verifikasi'"
+                            <div v-if="canVerify && selectedMk?.file_rps_path && selectedMk?.status_verifikasi_rps === 'Menunggu Verifikasi'"
                                 class="mt-6">
                                 <Button label="Lakukan Verifikasi" icon="pi pi-check-square" severity="primary"
                                     @click="verifyDialog = true" class="w-full" />
@@ -333,6 +336,7 @@ function getStatusSeverity(status) {
                                 </div>
                                 <!-- PERBAIKAN: Menghilangkan container p-fluid agar textarea mengisi seluruh lebar card -->
                                 <Textarea v-model="header.deskripsi_singkat" rows="6" autoResize fluid
+                                    :disabled="!canEdit"
                                     class="custom-textarea"
                                     placeholder="Jelaskan ringkasan materi, fokus pembelajaran, dan urgensi mata kuliah ini..." />
                             </div>
@@ -349,6 +353,7 @@ function getStatusSeverity(status) {
                                     </div>
                                 </div>
                                 <Textarea v-model="header.pustaka_utama" rows="5" autoResize fluid
+                                    :disabled="!canEdit"
                                     class="custom-textarea"
                                     placeholder="Tuliskan referensi buku wajib, modul, atau sumber utama lainnya..." />
                             </div>
@@ -368,6 +373,7 @@ function getStatusSeverity(status) {
                                     </div>
                                 </div>
                                 <Textarea v-model="header.capaian_pembelajaran" rows="6" autoResize fluid
+                                    :disabled="!canEdit"
                                     class="custom-textarea"
                                     placeholder="Tuliskan kemampuan akhir yang diharapkan dikuasai mahasiswa..." />
                             </div>
@@ -384,6 +390,7 @@ function getStatusSeverity(status) {
                                     </div>
                                 </div>
                                 <Textarea v-model="header.pustaka_pendukung" rows="5" autoResize fluid
+                                    :disabled="!canEdit"
                                     class="custom-textarea"
                                     placeholder="Jurnal, website, atau artikel ilmiah yang mendukung pembelajaran..." />
                             </div>
@@ -394,7 +401,7 @@ function getStatusSeverity(status) {
                     <div
                         class="mt-10 flex justify-end p-5 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
                         <div class="flex flex-col items-end gap-2">
-                            <Button label="Simpan Perubahan Informasi Umum" icon="pi pi-save" severity="success"
+                            <Button v-if="canEdit" label="Simpan Perubahan Informasi Umum" icon="pi pi-save" severity="success"
                                 size="large" @click="handleSaveHeader" :loading="rpsLoading"
                                 class="px-8 font-bold shadow-md" />
                             <small class="text-slate-400">Terakhir diperbarui: {{ header.updated_at ? new
@@ -408,7 +415,7 @@ function getStatusSeverity(status) {
             <TabPanel header="Matriks Mingguan">
                 <Toolbar class="mb-4">
                     <template #start>
-                        <Button label="Tambah Rencana Minggu" icon="pi pi-plus" severity="primary" size="small"
+                        <Button v-if="canEdit" label="Tambah Rencana Minggu" icon="pi pi-plus" severity="primary" size="small"
                             @click="openWeeklyForm()" />
                     </template>
                     <template #end>
@@ -426,7 +433,7 @@ function getStatusSeverity(status) {
                             </span>
                         </template>
                     </Column>
-                    <Column header="Aksi" style="width: 100px" class="text-center">
+                    <Column v-if="canEdit" header="Aksi" style="width: 100px" class="text-center">
                         <template #body="slotProps">
                             <div class="flex gap-2 justify-center">
                                 <Button icon="pi pi-pencil" text rounded severity="info"

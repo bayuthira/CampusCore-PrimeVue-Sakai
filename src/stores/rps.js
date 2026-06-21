@@ -3,12 +3,26 @@ import { defineStore } from 'pinia';
 
 export const useRpsStore = defineStore('rps', {
     state: () => ({
+        mataKuliahList: [],
         header: null,
         weeklyMatrix: [],
         isLoading: false,
         error: null
     }),
     actions: {
+        async fetchMataKuliah() {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await apiClient.get('/matakuliah/rps-saya');
+                this.mataKuliahList = response.data;
+            } catch (error) {
+                this.error = error.response?.data?.error || 'Gagal mengambil mata kuliah RPS.';
+                throw error;
+            } finally {
+                this.isLoading = false;
+            }
+        },
         // --- Header RPS ---
         async fetchHeader(mataKuliahId) {
             this.isLoading = true;
