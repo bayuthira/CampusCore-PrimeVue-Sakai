@@ -136,6 +136,12 @@ async function updateAttendance(row, status) {
 function statusSeverity(status) {
     return { Dibuka: 'success', Ditutup: 'info', Dibatalkan: 'danger' }[status] || 'secondary';
 }
+
+function formatTime(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
 </script>
 
 <template>
@@ -229,7 +235,7 @@ function statusSeverity(status) {
                         <div v-if="sesiPresensi" class="mb-5">
                             <span class="block text-muted-color mb-2">Kode Presensi Mahasiswa</span>
                             <div class="text-4xl font-bold tracking-[0.25em] text-primary">{{ sesiPresensi.kode }}</div>
-                            <small>Berlaku sampai {{ new Date(sesiPresensi.berlaku_sampai).toLocaleTimeString('id-ID') }}</small>
+                            <small>Berlaku sampai {{ formatTime(sesiPresensi.berlaku_sampai) }}</small>
                         </div>
                         <Button label="Buat Kode Presensi Baru" icon="pi pi-refresh" outlined class="w-full mb-3" @click="openSession" />
                         <Button label="Tutup Pertemuan" icon="pi pi-stop" severity="danger" class="w-full" :loading="isLoading" @click="closeSession" />
@@ -252,7 +258,7 @@ function statusSeverity(status) {
                         </Column>
                         <Column field="sumber" header="Sumber" />
                         <Column header="Check-in">
-                            <template #body="{ data }">{{ data.check_in_at ? new Date(data.check_in_at).toLocaleTimeString('id-ID') : '-' }}</template>
+                            <template #body="{ data }">{{ formatTime(data.check_in_at) }}</template>
                         </Column>
                     </DataTable>
                 </div>
