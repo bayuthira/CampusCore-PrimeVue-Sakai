@@ -80,6 +80,14 @@ const fullMenu = [
         ]
     },
     {
+        label: 'Ujian & Asesmen',
+        roles: ['DOSEN', 'MAHASISWA', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'],
+        items: [
+            { label: 'Manajemen Asesmen', icon: 'pi pi-fw pi-file-edit', to: '/asesmen/manajemen', roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'] },
+            { label: 'Ujian Saya', icon: 'pi pi-fw pi-graduation-cap', to: '/asesmen/saya', roles: ['MAHASISWA'] }
+        ]
+    },
+    {
         label: 'Aset & Fasilitas', // Nama kategori bisa disesuaikan
         roles: ['SUPER_ADMIN', 'STAF_BAUM'],
         items: [

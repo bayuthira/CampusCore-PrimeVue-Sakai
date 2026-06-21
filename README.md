@@ -104,6 +104,39 @@ dan nilai per enrollment. Ujian susulan/remedial disimpan sebagai attempt baru
 agar nilai dan keputusan sebelumnya tetap dapat diaudit. Pelaksanaan UTS/UAS
 dapat dihubungkan ke pertemuan kuliah untuk memakai BAP dan presensi yang sama.
 
+### Workflow Ujian & Asesmen
+
+Menu **Ujian & Asesmen** mendukung ujian manual dan online dengan alur:
+
+`Draft → Diajukan → Disetujui/Perlu Revisi → Siap Dilaksanakan → Berlangsung → Selesai → Dinilai → Dikunci`
+
+- Koordinator mata kuliah mengelola naskah, lampiran, kunci jawaban, pengajuan,
+  dan nilai.
+- Kaprodi melakukan review tanpa dapat mengubah naskah dosen.
+- Staf Akademik dapat menyusun metadata jadwal dan membantu pelaksanaan.
+- Staf BAUM hanya memperoleh akses dokumen ujian manual yang sudah disetujui
+  untuk proses penggandaan dan serah-terima; kunci jawaban tetap tertutup.
+- Mahasiswa hanya melihat asesmen pada KRS yang disetujui. Link ujian online
+  baru dikirim API ketika status ujian `Berlangsung`.
+
+Setiap unggahan dokumen menghasilkan versi baru dan seluruh keputusan review
+disimpan sebagai histori. Setiap unduhan dokumen juga masuk audit akses. Ujian
+manual menyimpan jumlah naskah utama/cadangan,
+status penggandaan, dan catatan serah-terima. Saat pengawas membuka ujian,
+sistem membuat kode presensi 8 karakter yang berlaku 30 menit. Penutupan ujian
+mewajibkan BAP serta dapat mencatat versi soal, jumlah lembar jawaban, dan
+insiden.
+
+Jika opsi **Hitung sebagai pertemuan** aktif, pelaksanaan UTS/UAS otomatis
+dibukukan sebagai pertemuan kuliah. BAP dan presensinya disalin ke report
+pembelajaran saat ujian ditutup. Nilai disimpan per enrollment dan attempt;
+ujian susulan/remedial tidak menimpa attempt sebelumnya. Nilai baru terlihat
+oleh mahasiswa setelah seluruh peserta dinilai dan asesmen dikunci.
+
+Backend memerlukan migration `20260621150000_create_asesmen_tables` sebelum
+menu ini digunakan. Mode online pada tahap ini mengelola dan merilis link ke
+platform eksternal; CampusCore belum menjadi mesin pengerjaan soal online.
+
 ## Konfigurasi
 
 | Variabel | Wajib | Keterangan |

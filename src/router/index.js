@@ -94,6 +94,18 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK'], title: 'Report Pembelajaran' }
                 },
                 {
+                    path: '/asesmen/manajemen',
+                    name: 'manajemen-asesmen',
+                    component: () => import('@/views/asesmen/ManajemenAsesmen.vue'),
+                    meta: { requiresAuth: true, roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'], title: 'Ujian & Asesmen' }
+                },
+                {
+                    path: '/asesmen/saya',
+                    name: 'asesmen-saya',
+                    component: () => import('@/views/asesmen/AsesmenMahasiswa.vue'),
+                    meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'Ujian Saya' }
+                },
+                {
                     path: '/akademik/tahun-akademik',
                     name: 'tahun-akademik',
                     component: () => import('@/views/akademik/TahunAkademik.vue'),
