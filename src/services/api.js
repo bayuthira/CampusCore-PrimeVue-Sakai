@@ -2,11 +2,13 @@
 import { useAuthStore } from '@/stores/auth';
 import axios from 'axios';
 
+const appServiceName = import.meta.env.VITE_API_SERVICE_NAME || 'Satria-Management-System';
+
 const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
-        'x-app-service': 'CampusCore'
+        'x-app-service': appServiceName
     }
 });
 

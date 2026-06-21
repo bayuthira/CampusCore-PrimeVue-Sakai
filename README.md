@@ -41,6 +41,7 @@ menjalankan aplikasi di `http://localhost:5173`.
 | Variabel | Wajib | Keterangan |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | Ya | URL dasar API backend tanpa slash di bagian akhir. |
+| `VITE_API_SERVICE_NAME` | Tidak | Nilai header `x-app-service` untuk allow-rule Cloudflare. Default: `Satria-Management-System`. |
 | `VITE_APP_NAME` | Tidak | Nama singkat aplikasi. Default: `CampusCore`. |
 | `VITE_APP_LONG_NAME` | Tidak | Nama lengkap yang tampil di halaman login. |
 | `VITE_THEME_PRIMARY` | Tidak | Warna utama tema. Default: `blue`. |
