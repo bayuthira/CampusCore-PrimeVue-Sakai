@@ -87,6 +87,23 @@ duplikasi RPS. Model saat ini belum menyimpan versi per kurikulum; ketika
 kebutuhan itu muncul, skema harus ditambah agar RPS lama tetap menjadi histori
 dan perubahan kurikulum menghasilkan versi baru, bukan menimpa versi lama.
 
+## Report pembelajaran dan asesmen
+
+Menu **Perkuliahan → Report Pembelajaran** menyediakan monitoring per tahun
+akademik untuk realisasi pertemuan, kelengkapan BAP, presensi dosen, jumlah
+mahasiswa, dan persentase kehadiran mahasiswa. Dosen hanya melihat kelas yang
+diampu, Kaprodi melihat kelas dalam prodinya, sedangkan Staf Akademik dan Super
+Admin dapat melihat seluruh kelas. Tabel dapat diekspor ke CSV dan setiap kelas
+dapat dibuka sampai rincian per pertemuan.
+
+Bobot UTS dan UAS saat ini disimpan pada rencana penilaian kelas. Pengembangan
+nilai berikutnya sebaiknya memakai entitas asesmen per kelas, bukan menambah
+kolom nilai langsung pada data mahasiswa. Setiap asesmen perlu menyimpan jenis
+(`Kuis`, `Tugas`, `UTS`, `UAS`, atau `Praktik`), bobot, jadwal, status publikasi,
+dan nilai per enrollment. Ujian susulan/remedial disimpan sebagai attempt baru
+agar nilai dan keputusan sebelumnya tetap dapat diaudit. Pelaksanaan UTS/UAS
+dapat dihubungkan ke pertemuan kuliah untuk memakai BAP dan presensi yang sama.
+
 ## Konfigurasi
 
 | Variabel | Wajib | Keterangan |

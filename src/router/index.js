@@ -88,6 +88,12 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'Presensi Kuliah' }
                 },
                 {
+                    path: '/pembelajaran/report',
+                    name: 'report-pembelajaran',
+                    component: () => import('@/views/pembelajaran/ReportPembelajaran.vue'),
+                    meta: { requiresAuth: true, roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK'], title: 'Report Pembelajaran' }
+                },
+                {
                     path: '/akademik/tahun-akademik',
                     name: 'tahun-akademik',
                     component: () => import('@/views/akademik/TahunAkademik.vue'),

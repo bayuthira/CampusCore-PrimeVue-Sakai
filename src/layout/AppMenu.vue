@@ -59,12 +59,13 @@ const fullMenu = [
     },
     {
         label: 'Perkuliahan',
-        roles: ['DOSEN', 'MAHASISWA', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'],
+        roles: ['DOSEN', 'MAHASISWA', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'],
         items: [
             { label: 'Jadwal Kuliah', icon: 'pi pi-fw pi-calendar', to: '/akademik/jadwal-kuliah', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'] },
             { label: 'Tahun Akademik', icon: 'pi pi-fw pi-sitemap', to: '/akademik/tahun-akademik', roles: ['SUPER_ADMIN'] },
             { label: 'Proses Pembelajaran', icon: 'pi pi-fw pi-book', to: '/pembelajaran/proses', roles: ['DOSEN'] },
-            { label: 'Presensi Kuliah', icon: 'pi pi-fw pi-check-circle', to: '/pembelajaran/presensi', roles: ['MAHASISWA'] }
+            { label: 'Presensi Kuliah', icon: 'pi pi-fw pi-check-circle', to: '/pembelajaran/presensi', roles: ['MAHASISWA'] },
+            { label: 'Report Pembelajaran', icon: 'pi pi-fw pi-chart-bar', to: '/pembelajaran/report', roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK'] }
         ]
     },
     {
