@@ -23,6 +23,7 @@ const weeklyData = ref({});
 const verifyData = ref({ status_verifikasi: 'Disetujui', catatan: '' });
 const submitted = ref(false);
 const isPrintLoading = ref(false);
+const isFileLoading = ref(false);
 
 const filters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS }
@@ -103,21 +104,75 @@ async function onRpsUpload(event) {
 
     try {
         await rpsStore.uploadRpsFile(selectedMk.value.id, formData);
+        await mkStore.fetchMataKuliah();
+        selectedMk.value = mataKuliahList.value.find((mk) => mk.id === selectedMk.value.id) || selectedMk.value;
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'File RPS diunggah, menunggu verifikasi', life: 3000 });
-        mkStore.fetchMataKuliah();
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal mengunggah file', life: 3000 });
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.response?.data?.error || 'Gagal mengunggah file', life: 3000 });
+    }
+}
+
+function getRpsFileName() {
+    const extension = selectedMk.value?.file_rps_path?.split('.').pop()?.toLowerCase() || 'file';
+    return `RPS-${selectedMk.value?.kode_mk || 'mata-kuliah'}.${extension}`;
+}
+
+async function handleViewFile() {
+    if (!selectedMk.value?.file_rps_path) return;
+
+    isFileLoading.value = true;
+    try {
+        const blob = await rpsStore.fetchRpsFile(selectedMk.value.id);
+        const blobUrl = URL.createObjectURL(blob);
+        const newTab = window.open(blobUrl, '_blank');
+        if (!newTab) {
+            URL.revokeObjectURL(blobUrl);
+            throw new Error('Popup diblokir browser. Izinkan popup untuk melihat dokumen.');
+        }
+        newTab.opener = null;
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.message || 'Gagal membuka dokumen RPS.', life: 3000 });
+    } finally {
+        isFileLoading.value = false;
+    }
+}
+
+async function handleDownloadFile() {
+    if (!selectedMk.value?.file_rps_path) return;
+
+    isFileLoading.value = true;
+    try {
+        const blob = await rpsStore.fetchRpsFile(selectedMk.value.id);
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = getRpsFileName();
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: 'Gagal mengunduh dokumen RPS.', life: 3000 });
+    } finally {
+        isFileLoading.value = false;
     }
 }
 
 async function handleVerify() {
     try {
-        await rpsStore.verifyRps(selectedMk.value.id, verifyData.value);
+        if (!selectedMk.value.file_rps_path) {
+            toast.add({ severity: 'warn', summary: 'Belum Ada Dokumen', detail: 'Unggah dokumen RPS sebelum melakukan verifikasi.', life: 3000 });
+            return;
+        }
+        selectedMk.value = await rpsStore.verifyRps(selectedMk.value.id, verifyData.value);
         toast.add({ severity: 'success', summary: 'Berhasil', detail: `RPS telah ${verifyData.value.status_verifikasi}`, life: 3000 });
         verifyDialog.value = false;
         rpsDialog.value = false;
         mkStore.fetchMataKuliah();
-    } catch (e) { }
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Gagal', detail: e.response?.data?.error || 'Gagal memverifikasi RPS.', life: 3000 });
+    }
 }
 
 // PERBAIKAN: Menggunakan Blob agar Token terkirim dan tidak error 401/403
@@ -200,8 +255,27 @@ function getStatusSeverity(status) {
                                 Upload Dokumen RPS (Fisik)
                             </h5>
                             <FileUpload mode="basic" name="file" accept=".pdf,.doc,.docx" :maxFileSize="5000000"
-                                customUpload @uploader="onRpsUpload" auto chooseLabel="Pilih & Upload RPS"
+                                customUpload @uploader="onRpsUpload" auto
+                                :chooseLabel="selectedMk?.file_rps_path ? 'Ganti Dokumen RPS' : 'Pilih & Upload RPS'"
                                 class="w-full" />
+                            <div v-if="selectedMk?.file_rps_path"
+                                class="mt-4 p-3 bg-green-50 rounded border border-green-200">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <i class="pi pi-file text-green-600 text-xl"></i>
+                                        <div class="min-w-0">
+                                            <span class="block text-sm font-bold text-green-800">Dokumen RPS tersedia</span>
+                                            <span class="block text-xs text-green-700 truncate">{{ getRpsFileName() }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <Button label="Lihat" icon="pi pi-eye" size="small" outlined
+                                            :loading="isFileLoading" @click="handleViewFile" />
+                                        <Button label="Unduh" icon="pi pi-download" size="small" severity="secondary"
+                                            outlined :loading="isFileLoading" @click="handleDownloadFile" />
+                                    </div>
+                                </div>
+                            </div>
                             <div class="mt-4 p-3 bg-white rounded border border-gray-100">
                                 <p class="text-xs text-gray-500 m-0 italic">
                                     <i class="pi pi-info-circle mr-1"></i>
@@ -226,11 +300,11 @@ function getStatusSeverity(status) {
                                     <span class="text-xs font-bold text-blue-700 uppercase block mb-1">Catatan
                                         Kaprodi:</span>
                                     <p class="text-sm text-blue-900 m-0">
-                                        {{ selectedMk?.catatan_rps || 'Tidak ada catatan.'
+                                        {{ selectedMk?.catatan_verifikasi_rps || 'Tidak ada catatan.'
                                         }}</p>
                                 </div>
                             </div>
-                            <div v-if="isManager && selectedMk?.status_verifikasi_rps === 'Menunggu Verifikasi'"
+                            <div v-if="isManager && selectedMk?.file_rps_path && selectedMk?.status_verifikasi_rps === 'Menunggu Verifikasi'"
                                 class="mt-6">
                                 <Button label="Lakukan Verifikasi" icon="pi pi-check-square" severity="primary"
                                     @click="verifyDialog = true" class="w-full" />

@@ -72,6 +72,12 @@ export const useRpsStore = defineStore('rps', {
                 this.isLoading = false;
             }
         },
+        async fetchRpsFile(mataKuliahId) {
+            const response = await apiClient.get(`/matakuliah/${mataKuliahId}/rps/file`, {
+                responseType: 'blob'
+            });
+            return response.data;
+        },
         async verifyRps(mataKuliahId, payload) {
             this.isLoading = true;
             try {
