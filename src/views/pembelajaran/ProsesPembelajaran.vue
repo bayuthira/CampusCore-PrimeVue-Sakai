@@ -133,6 +133,14 @@ async function updateAttendance(row, status) {
     }
 }
 
+async function refreshAttendance() {
+    try {
+        await store.fetchDetail(selectedPertemuan.value.id);
+    } catch (error) {
+        showError(error, 'Gagal memperbarui presensi mahasiswa.');
+    }
+}
+
 function statusSeverity(status) {
     return { Dibuka: 'success', Ditutup: 'info', Dibatalkan: 'danger' }[status] || 'secondary';
 }
@@ -246,7 +254,11 @@ function formatTime(value) {
 
             <div class="col-span-12 lg:col-span-7">
                 <div class="card border border-surface">
-                    <h3 class="mt-0">Presensi Mahasiswa</h3>
+                    <div class="flex justify-between items-center gap-3 mb-4">
+                        <h3 class="m-0">Presensi Mahasiswa</h3>
+                        <Button label="Muat Ulang" icon="pi pi-refresh" size="small" outlined
+                            :loading="isLoading" @click="refreshAttendance" />
+                    </div>
                     <DataTable :value="detail.presensi_mahasiswa" :loading="isLoading" paginator :rows="10" stripedRows>
                         <Column field="nim" header="NIM" class="font-mono" />
                         <Column field="nama_mahasiswa" header="Nama" />
