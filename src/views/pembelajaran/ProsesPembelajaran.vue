@@ -6,7 +6,7 @@ import { onMounted, ref } from 'vue';
 
 const store = usePembelajaranStore();
 const toast = useToast();
-const { kelas, pertemuan, detail, sesiPresensi, isLoading } = storeToRefs(store);
+const { kelas, pertemuan, detail, sesiPresensi, isLoading, error: storeError } = storeToRefs(store);
 
 const kelasDialog = ref(false);
 const formDialog = ref(false);
@@ -18,10 +18,18 @@ const bapForm = ref({});
 
 const statusOptions = ['Hadir', 'Terlambat', 'Izin', 'Sakit', 'Alpa'];
 
-onMounted(() => store.fetchKelas());
+onMounted(() => reloadKelas());
 
 function showError(error, fallback = 'Operasi gagal.') {
     toast.add({ severity: 'error', summary: 'Gagal', detail: store.error || fallback, life: 4000 });
+}
+
+async function reloadKelas() {
+    try {
+        await store.fetchKelas();
+    } catch (error) {
+        showError(error, 'Gagal mengambil kelas pembelajaran.');
+    }
 }
 
 async function openKelas(row) {
@@ -137,8 +145,10 @@ function statusSeverity(status) {
                 <h1 class="text-2xl font-semibold m-0">Proses Pembelajaran</h1>
                 <p class="text-muted-color mt-2 mb-0">Kelola pertemuan, BAP, dan presensi kelas yang Anda ampu.</p>
             </div>
-            <Button icon="pi pi-refresh" label="Muat Ulang" outlined :loading="isLoading" @click="store.fetchKelas()" />
+            <Button icon="pi pi-refresh" label="Muat Ulang" outlined :loading="isLoading" @click="reloadKelas" />
         </div>
+
+        <Message v-if="storeError" severity="error" class="mb-4">{{ storeError }}</Message>
 
         <DataTable :value="kelas" :loading="isLoading" paginator :rows="10" stripedRows>
             <Column field="kode_mk" header="Kode" sortable class="font-mono font-bold" />

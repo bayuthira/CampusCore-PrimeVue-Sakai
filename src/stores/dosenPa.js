@@ -9,10 +9,12 @@ export const useDosenPaStore = defineStore('dosenPa', {
         error: null
     }),
     actions: {
-        async fetchMyAdvisees() {
+        async fetchMyAdvisees(tahunAkademikId) {
             this.isLoading = true;
             try {
-                const response = await apiClient.get('/dosen-pa/my-advisees');
+                const response = await apiClient.get('/dosen-pa/my-advisees', {
+                    params: { tahun_akademik_id: tahunAkademikId }
+                });
                 this.advisees = response.data;
             } finally {
                 this.isLoading = false;
