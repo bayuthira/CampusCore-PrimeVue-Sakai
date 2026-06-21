@@ -11,6 +11,10 @@ module.exports = {
         ecmaVersion: 'latest'
     },
     rules: {
+        'no-empty': ['error', { allowEmptyCatch: true }],
+        'no-unused-vars': 'warn',
+        'prettier/prettier': 'off',
+        'vue/no-unused-vars': 'warn',
         'vue/multi-word-component-names': 'off',
         'vue/no-reserved-component-names': 'off',
         'vue/component-tags-order': [

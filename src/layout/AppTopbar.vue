@@ -28,7 +28,7 @@ const handleLogout = () => {
     });
 };
 
-const appName = import.meta.env.VITE_APP_NAME;
+const appName = import.meta.env.VITE_APP_NAME || 'CampusCore';
 </script>
 
 <template>

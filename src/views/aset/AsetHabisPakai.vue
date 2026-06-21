@@ -7,7 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
-import * as XLSX from 'xlsx';
+import { exportToCsv } from '@/utils/exportCsv';
 
 // --- Setup ---
 const toast = useToast();
@@ -40,16 +40,13 @@ onMounted(() => {
 // --- Export Functions ---
 const exportItems = ref([
     { label: 'CSV', icon: 'pi pi-file', command: () => dt.value.exportCSV() },
-    { label: 'Excel', icon: 'pi pi-file-excel', command: exportExcel },
+    { label: 'CSV', icon: 'pi pi-file-excel', command: exportExcel },
     { label: 'PDF', icon: 'pi pi-file-pdf', command: exportPDF }
 ]);
 
 function exportExcel() {
     const data = list.value;
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Aset Habis Pakai');
-    XLSX.writeFile(workbook, 'data-aset-habis-pakai.xlsx');
+    exportToCsv(data, 'data-aset-habis-pakai.csv');
 }
 
 function exportPDF() {

@@ -11,7 +11,7 @@ import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
 import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref } from 'vue';
-import * as XLSX from 'xlsx';
+import { exportToCsv } from '@/utils/exportCsv';
 
 // --- Setup ---
 const toast = useToast();
@@ -220,7 +220,7 @@ function formatDateTime(value) {
 // --- Export Functions ---
 const exportItems = ref([
     { label: 'CSV', icon: 'pi pi-file', command: () => dt.value.exportCSV() },
-    { label: 'Excel', icon: 'pi pi-file-excel', command: exportExcel },
+    { label: 'CSV', icon: 'pi pi-file-excel', command: exportExcel },
     { label: 'PDF', icon: 'pi pi-file-pdf', command: exportPDF }
 ]);
 
@@ -233,10 +233,7 @@ function exportExcel() {
         Kondisi: item.kondisi,
         'Tanggal Pembelian': item.tanggal_pembelian
     }));
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Aset');
-    XLSX.writeFile(workbook, 'data-aset.xlsx');
+    exportToCsv(data, 'data-aset.csv');
 }
 
 function exportPDF() {

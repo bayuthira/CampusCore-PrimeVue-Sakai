@@ -36,7 +36,7 @@ const handleLogin = async () => {
 };
 
 // Ambil nama dari .env
-const appName = import.meta.env.VITE_APP_NAME || 'SIKT';
+const appName = import.meta.env.VITE_APP_NAME || 'CampusCore';
 const appLongName = import.meta.env.VITE_APP_LONG_NAME || 'Sistem Informasi Kampus Terpadu';
 </script>
 

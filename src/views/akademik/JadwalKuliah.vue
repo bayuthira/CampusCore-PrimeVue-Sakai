@@ -15,7 +15,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 // Ekspor
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { exportToCsv } from '@/utils/exportCsv';
 
 // --- Setup ---
 const authStore = useAuthStore();
@@ -74,15 +74,12 @@ onMounted(() => {
 // --- Fungsi Ekspor ---
 const exportItems = [
     { label: 'CSV', icon: 'pi pi-file', command: () => dt.value.exportCSV() },
-    { label: 'Excel', icon: 'pi pi-file-excel', command: exportExcel },
+    { label: 'CSV', icon: 'pi pi-file-excel', command: exportExcel },
     { label: 'PDF', icon: 'pi pi-file-pdf', command: exportPDF }
 ];
 
 function exportExcel() {
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(jadwalList.value);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Jadwal Kuliah');
-    XLSX.writeFile(workbook, 'data-jadwal-kuliah.xlsx');
+    exportToCsv(jadwalList.value, 'data-jadwal-kuliah.csv');
 }
 
 function exportPDF() {

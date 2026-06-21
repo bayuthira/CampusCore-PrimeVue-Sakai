@@ -7,7 +7,7 @@ import autoTable from 'jspdf-autotable';
 import { storeToRefs } from 'pinia';
 import { useToast } from 'primevue/usetoast';
 import { onMounted, ref } from 'vue';
-import * as XLSX from 'xlsx';
+import { exportToCsv } from '@/utils/exportCsv';
 
 const toast = useToast();
 const mataKuliahStore = useMataKuliahStore();
@@ -37,10 +37,7 @@ function exportCSV() {
 }
 function exportExcel() {
     const data = mataKuliahList.value;
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'MataKuliah');
-    XLSX.writeFile(workbook, 'data-matakuliah.xlsx');
+    exportToCsv(data, 'data-matakuliah.csv');
 }
 function exportPDF() {
     const doc = new jsPDF();
@@ -58,7 +55,7 @@ function exportPDF() {
 }
 const exportItems = ref([
     { label: 'CSV', icon: 'pi pi-file', command: exportCSV },
-    { label: 'Excel', icon: 'pi pi-file-excel', command: exportExcel },
+    { label: 'CSV', icon: 'pi pi-file-excel', command: exportExcel },
     { label: 'PDF', icon: 'pi pi-file-pdf', command: exportPDF }
 ]);
 
