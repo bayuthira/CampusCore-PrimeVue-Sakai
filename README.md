@@ -43,6 +43,19 @@ menjalankan aplikasi di `http://localhost:5173`.
 | `VITE_API_BASE_URL` | Ya | URL dasar API backend tanpa slash di bagian akhir. |
 | `VITE_APP_NAME` | Tidak | Nama singkat aplikasi. Default: `CampusCore`. |
 | `VITE_APP_LONG_NAME` | Tidak | Nama lengkap yang tampil di halaman login. |
+| `VITE_THEME_PRIMARY` | Tidak | Warna utama tema. Default: `blue`. |
+| `VITE_THEME_SURFACE` | Tidak | Warna permukaan/netral. Default: `slate`. |
+| `VITE_THEME_PRESET` | Tidak | Preset PrimeVue: `Aura`, `Lara`, atau `Nora`. Default: `Aura`. |
+| `VITE_THEME_MENU_MODE` | Tidak | Mode menu: `static` atau `overlay`. Default: `static`. |
+
+Pilihan `VITE_THEME_PRIMARY` yang tersedia adalah `noir`, `emerald`, `green`,
+`lime`, `orange`, `amber`, `yellow`, `teal`, `cyan`, `sky`, `blue`, `indigo`,
+`violet`, `purple`, `fuchsia`, `pink`, dan `rose`. Pilihan surface yang tersedia
+adalah `slate`, `gray`, `zinc`, `neutral`, `stone`, `soho`, `viva`, dan `ocean`.
+Pengguna tetap dapat mengganti keempat pengaturan melalui configurator di UI.
+
+Variabel tema Vite diterapkan saat aplikasi dimulai. Restart dev server setelah
+mengubah `.env`; untuk deployment produksi, lakukan build ulang.
 
 Jangan menyimpan credential atau token di file `.env`. Semua variabel dengan
 awalan `VITE_` akan disertakan ke bundle frontend dan dapat dibaca pengguna.

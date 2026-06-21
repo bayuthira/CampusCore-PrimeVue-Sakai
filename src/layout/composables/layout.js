@@ -1,11 +1,12 @@
 import { computed, reactive } from 'vue';
+import { defaultThemeConfig } from '@/config/theme';
 
 const layoutConfig = reactive({
-    preset: 'Aura',
-    primary: 'emerald',
-    surface: null,
+    preset: defaultThemeConfig.preset,
+    primary: defaultThemeConfig.primary,
+    surface: defaultThemeConfig.surface,
     darkTheme: false,
-    menuMode: 'static'
+    menuMode: defaultThemeConfig.menuMode
 });
 
 const layoutState = reactive({
