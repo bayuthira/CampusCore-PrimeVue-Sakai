@@ -14,6 +14,8 @@ endpoint yang digunakan di direktori `src/stores`.
   rombongan belajar, KRS, dosen PA, dan RPS.
 - Pembelajaran: pertemuan kuliah, jurnal/BAP, presensi dosen, kode presensi
   mahasiswa dinamis, serta rekap realisasi tatap muka.
+- Ujian dan penilaian: asesmen manual/online, review soal, penggandaan,
+  pelaksanaan, presensi ujian, nilai per attempt, rekap nilai akhir, dan KHS.
 - SDM: pegawai, unit kerja, cuti, izin, absensi, biometrik, surat tugas, dan SPPD.
 - Sarana: aset, barang habis pakai, ruangan, kendaraan, dan penjadwalannya.
 - Administrasi: pengguna, role, dokumen, dan kontrol akses berbasis peran.
@@ -96,13 +98,11 @@ diampu, Kaprodi melihat kelas dalam prodinya, sedangkan Staf Akademik dan Super
 Admin dapat melihat seluruh kelas. Tabel dapat diekspor ke CSV dan setiap kelas
 dapat dibuka sampai rincian per pertemuan.
 
-Bobot UTS dan UAS saat ini disimpan pada rencana penilaian kelas. Pengembangan
-nilai berikutnya sebaiknya memakai entitas asesmen per kelas, bukan menambah
-kolom nilai langsung pada data mahasiswa. Setiap asesmen perlu menyimpan jenis
-(`Kuis`, `Tugas`, `UTS`, `UAS`, atau `Praktik`), bobot, jadwal, status publikasi,
-dan nilai per enrollment. Ujian susulan/remedial disimpan sebagai attempt baru
-agar nilai dan keputusan sebelumnya tetap dapat diaudit. Pelaksanaan UTS/UAS
-dapat dihubungkan ke pertemuan kuliah untuk memakai BAP dan presensi yang sama.
+Setiap asesmen disimpan per kelas dengan jenis (`Kuis`, `Tugas`, `UTS`, `UAS`,
+atau `Praktik`), bobot, jadwal, status workflow, dan nilai per enrollment.
+Ujian susulan/remedial disimpan sebagai attempt baru agar nilai sebelumnya
+tetap dapat diaudit. Pelaksanaan UTS/UAS dapat dihubungkan ke pertemuan kuliah
+untuk memakai BAP dan presensi yang sama.
 
 ### Workflow Ujian & Asesmen
 
@@ -136,6 +136,37 @@ oleh mahasiswa setelah seluruh peserta dinilai dan asesmen dikunci.
 Backend memerlukan migration `20260621150000_create_asesmen_tables` sebelum
 menu ini digunakan. Mode online pada tahap ini mengelola dan merilis link ke
 platform eksternal; CampusCore belum menjadi mesin pengerjaan soal online.
+
+### Workflow Nilai Akhir Mata Kuliah
+
+Menu **Ujian & Asesmen → Nilai Akhir** menghitung nilai total menggunakan
+attempt terbaru setiap komponen:
+
+`nilai akhir = Σ(nilai asesmen × bobot asesmen) / 100`
+
+Sebelum nilai dapat diajukan, total bobot harus tepat 100%, seluruh asesmen
+harus berstatus `Dikunci`, semua peserta harus memiliki nilai lengkap, dan
+skala nilai Prodi harus tersedia. Kaprodi atau Super Admin dapat mengatur
+rentang nilai huruf dan indeks melalui tombol **Atur Skala Nilai**.
+
+Workflow nilai akhir:
+
+`Draft → Diajukan → Disetujui/Perlu Revisi → Dipublikasikan`
+
+| Role | Kewenangan |
+| --- | --- |
+| Koordinator mata kuliah | Memeriksa rekap, membuka asesmen untuk revisi, dan mengajukan nilai akhir. |
+| Kaprodi | Mengatur skala nilai serta menyetujui atau mengembalikan rekap. |
+| Staf Akademik | Mempublikasikan rekap yang telah disetujui ke KHS. |
+| Mahasiswa | Melihat nilai angka, huruf, dan indeks yang sudah dipublikasikan pada halaman KRS. |
+
+Nilai asesmen yang telah dikunci hanya dapat dibuka ketika rekap masih `Draft`
+atau `PerluRevisi`. Nilai tidak dapat dibuka ketika sedang direview, sudah
+disetujui, atau sudah dipublikasikan. Publikasi mengisi `nilai_angka`,
+`nilai_huruf`, dan `nilai_indeks` enrollment mahasiswa.
+
+Backend juga memerlukan migration
+`20260621180000_create_nilai_akhir_tables` untuk workflow dan audit nilai akhir.
 
 ## Konfigurasi
 

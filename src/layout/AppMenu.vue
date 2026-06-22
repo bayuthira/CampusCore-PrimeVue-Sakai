@@ -84,6 +84,7 @@ const fullMenu = [
         roles: ['DOSEN', 'MAHASISWA', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'],
         items: [
             { label: 'Manajemen Asesmen', icon: 'pi pi-fw pi-file-edit', to: '/asesmen/manajemen', roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK', 'STAF_BAUM'] },
+            { label: 'Nilai Akhir', icon: 'pi pi-fw pi-calculator', to: '/asesmen/nilai-akhir', roles: ['DOSEN', 'KAPRODI', 'SUPER_ADMIN', 'STAF_AKADEMIK'] },
             { label: 'Ujian Saya', icon: 'pi pi-fw pi-graduation-cap', to: '/asesmen/saya', roles: ['MAHASISWA'] }
         ]
     },

@@ -7,6 +7,9 @@ export const useAsesmenStore = defineStore('asesmen', {
         schedules: [],
         detail: null,
         studentList: [],
+        finalGradeClasses: [],
+        finalGradeDetail: null,
+        gradeScales: [],
         isLoading: false,
         error: null
     }),
@@ -91,6 +94,39 @@ export const useAsesmenStore = defineStore('asesmen', {
         },
         checkIn(kode) {
             return this.run(async () => (await apiClient.post('/asesmen-saya/check-in', { kode })).data);
+        },
+        fetchFinalGradeClasses(tahunAkademikId) {
+            return this.run(async () => {
+                const response = await apiClient.get('/asesmen/nilai-akhir', { params: { tahun_akademik_id: tahunAkademikId } });
+                this.finalGradeClasses = response.data;
+            });
+        },
+        fetchFinalGradeDetail(jadwalId) {
+            return this.run(async () => {
+                const response = await apiClient.get(`/asesmen/nilai-akhir/${jadwalId}`);
+                this.finalGradeDetail = response.data;
+                return response.data;
+            });
+        },
+        finalGradeAction(jadwalId, action, payload = undefined) {
+            return this.run(async () => {
+                const response = await apiClient.post(`/asesmen/nilai-akhir/${jadwalId}/${action}`, payload);
+                return response.data;
+            });
+        },
+        fetchGradeScales(prodiId) {
+            return this.run(async () => {
+                const response = await apiClient.get(`/asesmen/skala-nilai/${prodiId}`);
+                this.gradeScales = response.data;
+                return response.data;
+            });
+        },
+        saveGradeScales(prodiId, items) {
+            return this.run(async () => {
+                const response = await apiClient.put(`/asesmen/skala-nilai/${prodiId}`, { items });
+                this.gradeScales = response.data;
+                return response.data;
+            });
         }
     }
 });

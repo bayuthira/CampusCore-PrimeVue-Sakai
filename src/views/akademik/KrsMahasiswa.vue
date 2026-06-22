@@ -108,6 +108,15 @@ function getStatusSeverity(status) {
                         :severity="getStatusSeverity(slotProps.data.status_approval)" />
                 </template>
             </Column>
+            <Column field="nilai_angka" header="Nilai Akhir" class="text-center">
+                <template #body="slotProps">{{ slotProps.data.nilai_angka ?? '-' }}</template>
+            </Column>
+            <Column field="nilai_huruf" header="Huruf" class="text-center">
+                <template #body="slotProps"><Tag v-if="slotProps.data.nilai_huruf" :value="slotProps.data.nilai_huruf" severity="success" /><span v-else>-</span></template>
+            </Column>
+            <Column field="nilai_indeks" header="Indeks" class="text-center">
+                <template #body="slotProps">{{ slotProps.data.nilai_indeks ?? '-' }}</template>
+            </Column>
             <Column header="Aksi" style="width: 100px" class="text-center">
                 <template #body="slotProps">
                     <Button icon="pi pi-trash" severity="danger" text rounded @click="dropMk(slotProps.data.id)"
