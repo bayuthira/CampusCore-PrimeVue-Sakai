@@ -146,8 +146,14 @@ attempt terbaru setiap komponen:
 
 Sebelum nilai dapat diajukan, total bobot harus tepat 100%, seluruh asesmen
 harus berstatus `Dikunci`, semua peserta harus memiliki nilai lengkap, dan
-skala nilai Prodi harus tersedia. Kaprodi atau Super Admin dapat mengatur
-rentang nilai huruf dan indeks melalui tombol **Atur Skala Nilai**.
+skala nilai harus tersedia. Staf Akademik mengelola skala global, sedangkan
+Kaprodi dapat membuat override Prodi melalui tombol **Atur Skala Nilai**.
+
+Skala memakai versi efektif. Scope **Global** menjadi default seluruh institusi
+dan scope **Prodi** hanya override. Versi baru otomatis mengakhiri periode lama;
+versi yang sudah dipakai berstatus `Terkunci`. Penambahan seperti `A+` wajib
+dibuat sebagai versi baru agar nilai lama tetap memakai huruf dan indeks saat
+pertama kali dipublikasikan.
 
 Workflow nilai akhir:
 
@@ -174,6 +180,8 @@ mahasiswa lain melalui parameter URL.
 
 Backend juga memerlukan migration
 `20260621180000_create_nilai_akhir_tables` untuk workflow dan audit nilai akhir.
+Versioning global/Prodi serta mapping Bobot Nilai Neo Feeder memerlukan migration
+`20260622150000_version_global_grade_scales`.
 
 ### Administrasi Akhir Semester
 

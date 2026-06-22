@@ -22,12 +22,15 @@ const selectedClass = ref(null);
 const detailVisible = ref(false);
 const scaleVisible = ref(false);
 const scaleRows = ref([]);
+const scaleHistory = ref([]);
+const scaleScope = ref('Global');
 const review = ref({ aksi: 'Disetujui', catatan: '' });
 const correctionVisible = ref(false);
 const correctionListVisible = ref(false);
 const correctionForm = ref({ enrollment_id: null, mahasiswa: '', nilai_angka_baru: null, alasan: '' });
 const { corrections } = storeToRefs(akhirStore);
 const roles = computed(() => auth.userData?.roles || []);
+const canEditScaleScope = computed(() => roles.value.some(role => ['SUPER_ADMIN', 'STAF_AKADEMIK'].includes(role)) || (scaleScope.value === 'Prodi' && roles.value.includes('KAPRODI')));
 
 const totalWeightValid = computed(() => Number(detail.value?.kelas.total_bobot || 0) === 100);
 const allAssessmentsLocked = computed(() => detail.value?.kelas.jumlah_asesmen > 0 && detail.value.kelas.jumlah_asesmen === detail.value.kelas.jumlah_asesmen_dikunci);
@@ -117,7 +120,7 @@ function publishGrades() {
 }
 
 function defaultScales() {
-    const effectiveDate = `${new Date().getFullYear()}-01-01`;
+    const effectiveDate = new Date().toISOString().slice(0, 10);
     return [
         ['A', 4, 80, 100],
         ['B', 3, 70, 79.99],
@@ -129,23 +132,39 @@ function defaultScales() {
 
 async function openScales() {
     try {
-        const rows = await store.fetchGradeScales(detail.value.kelas.prodi_id);
-        scaleRows.value = rows.filter(item => !item.dari_feeder).map(item => ({ ...item }));
-        if (!scaleRows.value.length && !rows.some(item => item.dari_feeder)) scaleRows.value = defaultScales();
+        scaleScope.value = 'Global';
+        await loadScales();
         scaleVisible.value = true;
     } catch (requestError) {
         notifyError();
     }
 }
 
+async function loadScales() {
+    const rows = scaleScope.value === 'Global' ? await store.fetchGlobalGradeScales() : await store.fetchGradeScales(detail.value.kelas.prodi_id);
+    scaleHistory.value = rows;
+    scaleRows.value = [];
+    if (!rows.length && canEditScaleScope.value) newScaleVersion();
+}
+
 function addScale() {
-    scaleRows.value.push({ nilai_huruf: '', nilai_indeks: 0, bobot_minimum: 0, bobot_maksimum: 0, tanggal_mulai_efektif: `${new Date().getFullYear()}-01-01`, tanggal_akhir_efektif: null });
+    scaleRows.value.push({ nilai_huruf: '', nilai_indeks: 0, bobot_minimum: 0, bobot_maksimum: 0, tanggal_mulai_efektif: scaleRows.value[0]?.tanggal_mulai_efektif || new Date().toISOString().slice(0, 10), tanggal_akhir_efektif: null });
+}
+
+function newScaleVersion() {
+    const effectiveDate = new Date().toISOString().slice(0, 10);
+    const latestDate = scaleHistory.value[0]?.tanggal_mulai_efektif;
+    const source = latestDate ? scaleHistory.value.filter(item => item.tanggal_mulai_efektif === latestDate) : [];
+    scaleRows.value = source.length
+        ? source.map(item => ({ nilai_huruf: item.nilai_huruf, nilai_indeks: Number(item.nilai_indeks), bobot_minimum: Number(item.bobot_minimum), bobot_maksimum: Number(item.bobot_maksimum), tanggal_mulai_efektif: effectiveDate, tanggal_akhir_efektif: null }))
+        : defaultScales();
 }
 
 async function saveScales() {
     try {
-        await store.saveGradeScales(detail.value.kelas.prodi_id, scaleRows.value);
-        scaleVisible.value = false;
+        if (scaleScope.value === 'Global') await store.saveGlobalGradeScales(scaleRows.value);
+        else await store.saveGradeScales(detail.value.kelas.prodi_id, scaleRows.value);
+        await loadScales();
         await reload();
         toast.add({ severity: 'success', summary: 'Berhasil', detail: 'Skala nilai Prodi tersimpan.', life: 3000 });
     } catch (requestError) {
@@ -210,7 +229,7 @@ async function applyCorrection(row) { try { await akhirStore.applyCorrection(row
                     <Tag :value="`${detail.kelas.jumlah_asesmen_dikunci}/${detail.kelas.jumlah_asesmen} komponen dikunci`" :severity="allAssessmentsLocked ? 'success' : 'warn'" />
                 </div>
                 <div class="flex gap-2">
-                    <Button v-if="detail.kelas.can_review" label="Atur Skala Nilai" icon="pi pi-sliders-h" outlined @click="openScales" />
+                    <Button v-if="roles.some(role => ['KAPRODI', 'STAF_AKADEMIK', 'SUPER_ADMIN'].includes(role))" label="Atur Skala Nilai" icon="pi pi-sliders-h" outlined @click="openScales" />
                     <Button v-if="detail.kelas.can_submit && ['Draft', 'PerluRevisi'].includes(detail.kelas.status)" label="Ajukan ke Kaprodi" icon="pi pi-send" :disabled="!readyToSubmit" @click="submitGrades" />
                     <Button v-if="detail.kelas.can_publish && detail.kelas.status === 'Disetujui'" label="Publikasikan ke KHS" icon="pi pi-check-circle" severity="success" @click="publishGrades" />
                 </div>
@@ -257,9 +276,24 @@ async function applyCorrection(row) { try { await akhirStore.applyCorrection(row
         </div>
     </Dialog>
 
-    <Dialog v-model:visible="scaleVisible" modal :header="`Skala Nilai · ${detail?.kelas?.nama_prodi || 'Program Studi'}`" :style="{ width: 'min(1040px, 96vw)' }">
-        <Message severity="info" class="mb-4">Skala ini hanya berlaku untuk {{ detail?.kelas?.nama_prodi }} sesuai periode efektif. Contoh A–E di bawah belum tersimpan; sesuaikan dengan pedoman akademik.</Message>
-        <DataTable :value="scaleRows" size="small" scrollable tableStyle="min-width: 900px">
+    <Dialog v-model:visible="scaleVisible" modal header="Versi Skala Nilai" :style="{ width: 'min(1040px, 96vw)' }">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+            <Message severity="info" class="m-0 flex-1">Global berlaku untuk seluruh Prodi. Override Prodi hanya dipakai jika tersedia pada periode yang sama. Versi lama tidak diubah.</Message>
+            <Select v-model="scaleScope" :options="['Global', 'Prodi']" class="w-44" @change="loadScales" />
+        </div>
+        <div class="flex items-center justify-between mb-3"><h3 class="m-0">Riwayat {{ scaleScope === 'Global' ? 'Institusi' : detail?.kelas?.nama_prodi }}</h3><Button v-if="canEditScaleScope" label="Buat Versi Baru" icon="pi pi-plus" outlined size="small" @click="newScaleVersion" /></div>
+        <DataTable :value="scaleHistory" size="small" scrollable tableStyle="min-width: 760px" class="mb-5">
+            <Column field="nilai_huruf" header="Huruf" /><Column field="nilai_indeks" header="Indeks" />
+            <Column header="Rentang"><template #body="{ data }">{{ data.bobot_minimum }} – {{ data.bobot_maksimum }}</template></Column>
+            <Column field="tanggal_mulai_efektif" header="Mulai" /><Column header="Berakhir"><template #body="{ data }">{{ data.tanggal_akhir_efektif || 'Aktif' }}</template></Column>
+            <Column header="Status"><template #body="{ data }"><Tag :value="data.is_locked ? 'Terkunci' : (data.dari_feeder ? 'Tersinkron' : 'Draft')" :severity="data.is_locked ? 'contrast' : (data.dari_feeder ? 'success' : 'secondary')" /></template></Column>
+            <template #empty><div class="text-center p-4">Belum ada skala pada scope ini.</div></template>
+        </DataTable>
+
+        <div v-if="scaleRows.length">
+            <h3>Versi Baru</h3>
+            <Message severity="warn" class="mb-3">Saat disimpan, versi aktif sebelumnya otomatis berakhir sehari sebelum tanggal mulai versi baru.</Message>
+            <DataTable :value="scaleRows" size="small" scrollable tableStyle="min-width: 900px">
             <Column header="Huruf" style="width: 90px"><template #body="{ data }"><InputText v-model="data.nilai_huruf" fluid /></template></Column>
             <Column header="Indeks" style="width: 110px"><template #body="{ data }"><InputNumber v-model="data.nilai_indeks" :min="0" :max="4" :minFractionDigits="0" :maxFractionDigits="2" fluid /></template></Column>
             <Column header="Minimum" style="width: 125px"><template #body="{ data }"><InputNumber v-model="data.bobot_minimum" :min="0" :max="100" :maxFractionDigits="2" fluid /></template></Column>
@@ -267,9 +301,10 @@ async function applyCorrection(row) { try { await akhirStore.applyCorrection(row
             <Column header="Mulai Efektif" style="width: 155px"><template #body="{ data }"><InputText v-model="data.tanggal_mulai_efektif" placeholder="YYYY-MM-DD" fluid /></template></Column>
             <Column header="Akhir Efektif" style="width: 155px"><template #body="{ data }"><InputText v-model="data.tanggal_akhir_efektif" placeholder="Opsional" fluid /></template></Column>
             <Column header="Aksi" style="width: 70px"><template #body="{ index }"><Button icon="pi pi-trash" text severity="danger" @click="scaleRows.splice(index, 1)" /></template></Column>
-        </DataTable>
-        <Button label="Tambah Rentang" icon="pi pi-plus" text class="mt-3" @click="addScale" />
-        <template #footer><Button label="Batal" text @click="scaleVisible = false" /><Button label="Simpan Skala" icon="pi pi-save" :loading="isLoading" @click="saveScales" /></template>
+            </DataTable>
+            <Button label="Tambah Rentang" icon="pi pi-plus" text class="mt-3" @click="addScale" />
+        </div>
+        <template #footer><Button label="Tutup" text @click="scaleVisible = false" /><Button v-if="scaleRows.length && canEditScaleScope" label="Simpan Versi Baru" icon="pi pi-save" :loading="isLoading" @click="saveScales" /></template>
     </Dialog>
 
     <Dialog v-model:visible="correctionVisible" modal header="Ajukan Koreksi Nilai" :style="{ width: '520px' }">

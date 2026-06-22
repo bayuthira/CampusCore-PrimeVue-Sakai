@@ -129,9 +129,23 @@ export const useAsesmenStore = defineStore('asesmen', {
                 return response.data;
             });
         },
+        fetchGlobalGradeScales() {
+            return this.run(async () => {
+                const response = await apiClient.get('/asesmen/skala-nilai/global');
+                this.gradeScales = response.data;
+                return response.data;
+            });
+        },
         saveGradeScales(prodiId, items) {
             return this.run(async () => {
                 const response = await apiClient.put(`/asesmen/skala-nilai/${prodiId}`, { items });
+                this.gradeScales = response.data;
+                return response.data;
+            });
+        },
+        saveGlobalGradeScales(items) {
+            return this.run(async () => {
+                const response = await apiClient.put('/asesmen/skala-nilai/global', { items });
                 this.gradeScales = response.data;
                 return response.data;
             });
