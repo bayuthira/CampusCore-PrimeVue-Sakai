@@ -43,6 +43,7 @@ const fullMenu = [
                 to: '/akademik/krs-mahasiswa',
                 roles: ['MAHASISWA']
             },
+            { label: 'Nilai Saya', icon: 'pi pi-fw pi-chart-line', to: '/akademik/nilai-saya', roles: ['MAHASISWA'] },
             {
                 label: 'Persetujuan KRS',
                 icon: 'pi pi-fw pi-check-square',

@@ -7,6 +7,7 @@ export const useAsesmenStore = defineStore('asesmen', {
         schedules: [],
         detail: null,
         studentList: [],
+        studentGradeList: [],
         finalGradeClasses: [],
         finalGradeDetail: null,
         gradeScales: [],
@@ -94,6 +95,13 @@ export const useAsesmenStore = defineStore('asesmen', {
         },
         checkIn(kode) {
             return this.run(async () => (await apiClient.post('/asesmen-saya/check-in', { kode })).data);
+        },
+        fetchStudentGrades(tahunAkademikId) {
+            return this.run(async () => {
+                const response = await apiClient.get('/nilai-saya', { params: { tahun_akademik_id: tahunAkademikId } });
+                this.studentGradeList = response.data;
+                return response.data;
+            });
         },
         fetchFinalGradeClasses(tahunAkademikId) {
             return this.run(async () => {

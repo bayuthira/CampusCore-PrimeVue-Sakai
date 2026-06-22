@@ -106,6 +106,12 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'Ujian Saya' }
                 },
                 {
+                    path: '/akademik/nilai-saya',
+                    name: 'nilai-saya',
+                    component: () => import('@/views/asesmen/NilaiMahasiswa.vue'),
+                    meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'Nilai Saya' }
+                },
+                {
                     path: '/asesmen/nilai-akhir',
                     name: 'nilai-akhir',
                     component: () => import('@/views/asesmen/NilaiAkhir.vue'),

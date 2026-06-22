@@ -158,12 +158,19 @@ Workflow nilai akhir:
 | Koordinator mata kuliah | Memeriksa rekap, membuka asesmen untuk revisi, dan mengajukan nilai akhir. |
 | Kaprodi | Mengatur skala nilai serta menyetujui atau mengembalikan rekap. |
 | Staf Akademik | Mempublikasikan rekap yang telah disetujui ke KHS. |
-| Mahasiswa | Melihat nilai angka, huruf, dan indeks yang sudah dipublikasikan pada halaman KRS. |
+| Mahasiswa | Melihat nilai angka, huruf, indeks, serta rincian komponen yang sudah dipublikasikan melalui menu **Akademik → Nilai Saya**. |
 
 Nilai asesmen yang telah dikunci hanya dapat dibuka ketika rekap masih `Draft`
 atau `PerluRevisi`. Nilai tidak dapat dibuka ketika sedang direview, sudah
 disetujui, atau sudah dipublikasikan. Publikasi mengisi `nilai_angka`,
 `nilai_huruf`, dan `nilai_indeks` enrollment mahasiswa.
+
+Halaman **Nilai Saya** hanya menampilkan mata kuliah dengan rekap berstatus
+`Dipublikasikan`. Mahasiswa dapat memilih tahun akademik, melihat ringkasan SKS
+dan indeks dari nilai yang sudah terbit, lalu membuka rincian jenis asesmen,
+bobot, nilai, dan kontribusi setiap komponen. Backend memvalidasi kepemilikan
+enrollment menggunakan user pada JWT; mahasiswa tidak dapat meminta nilai milik
+mahasiswa lain melalui parameter URL.
 
 Backend juga memerlukan migration
 `20260621180000_create_nilai_akhir_tables` untuk workflow dan audit nilai akhir.
