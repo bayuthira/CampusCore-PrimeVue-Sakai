@@ -44,6 +44,8 @@ const fullMenu = [
                 roles: ['MAHASISWA']
             },
             { label: 'Nilai Saya', icon: 'pi pi-fw pi-chart-line', to: '/akademik/nilai-saya', roles: ['MAHASISWA'] },
+            { label: 'KHS & Transkrip', icon: 'pi pi-fw pi-file', to: '/akademik/khs-transkrip', roles: ['MAHASISWA'] },
+            { label: 'Akhir Semester', icon: 'pi pi-fw pi-lock', to: '/akademik/akhir-semester', roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'] },
             {
                 label: 'Persetujuan KRS',
                 icon: 'pi pi-fw pi-check-square',

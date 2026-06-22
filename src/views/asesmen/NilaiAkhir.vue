@@ -1,5 +1,7 @@
 <script setup>
 import { useAsesmenStore } from '@/stores/asesmen';
+import { useAkhirSemesterStore } from '@/stores/akhirSemester';
+import { useAuthStore } from '@/stores/auth';
 import { useTahunAkademikStore } from '@/stores/tahunAkademik';
 import { storeToRefs } from 'pinia';
 import { useConfirm } from 'primevue/useconfirm';
@@ -7,6 +9,8 @@ import { useToast } from 'primevue/usetoast';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const store = useAsesmenStore();
+const akhirStore = useAkhirSemesterStore();
+const auth = useAuthStore();
 const tahunStore = useTahunAkademikStore();
 const toast = useToast();
 const confirm = useConfirm();
@@ -19,6 +23,11 @@ const detailVisible = ref(false);
 const scaleVisible = ref(false);
 const scaleRows = ref([]);
 const review = ref({ aksi: 'Disetujui', catatan: '' });
+const correctionVisible = ref(false);
+const correctionListVisible = ref(false);
+const correctionForm = ref({ enrollment_id: null, mahasiswa: '', nilai_angka_baru: null, alasan: '' });
+const { corrections } = storeToRefs(akhirStore);
+const roles = computed(() => auth.userData?.roles || []);
 
 const totalWeightValid = computed(() => Number(detail.value?.kelas.total_bobot || 0) === 100);
 const allAssessmentsLocked = computed(() => detail.value?.kelas.jumlah_asesmen > 0 && detail.value.kelas.jumlah_asesmen === detail.value.kelas.jumlah_asesmen_dikunci);
@@ -143,6 +152,21 @@ async function saveScales() {
         notifyError();
     }
 }
+
+function requestCorrection(student) {
+    correctionForm.value = { enrollment_id: student.enrollment_id, mahasiswa: `${student.nim} · ${student.nama_mahasiswa}`, nilai_angka_baru: student.nilai_akhir, alasan: '' };
+    correctionVisible.value = true;
+}
+async function saveCorrection() {
+    try {
+        await akhirStore.submitCorrection({ enrollment_id: correctionForm.value.enrollment_id, nilai_angka_baru: correctionForm.value.nilai_angka_baru, alasan: correctionForm.value.alasan });
+        correctionVisible.value = false;
+        toast.add({ severity: 'success', summary: 'Diajukan', detail: 'Koreksi nilai dikirim kepada Kaprodi.', life: 3000 });
+    } catch { toast.add({ severity: 'error', summary: 'Gagal', detail: akhirStore.error, life: 4000 }); }
+}
+async function openCorrections() { try { await akhirStore.fetchCorrections(); correctionListVisible.value = true; } catch { toast.add({ severity: 'error', summary: 'Gagal', detail: akhirStore.error, life: 4000 }); } }
+async function reviewCorrection(row, aksi) { try { await akhirStore.reviewCorrection(row.id, { aksi, catatan: null }); await akhirStore.fetchCorrections(); } catch { toast.add({ severity: 'error', summary: 'Gagal', detail: akhirStore.error, life: 4000 }); } }
+async function applyCorrection(row) { try { await akhirStore.applyCorrection(row.id); await akhirStore.fetchCorrections(); toast.add({ severity: 'success', summary: 'Diterapkan', detail: 'Nilai, AKM, dan outbox Feeder diperbarui.', life: 3000 }); } catch { toast.add({ severity: 'error', summary: 'Gagal', detail: akhirStore.error, life: 4000 }); } }
 </script>
 
 <template>
@@ -152,7 +176,7 @@ async function saveScales() {
                 <h1 class="text-2xl font-semibold m-0">Nilai Akhir Mata Kuliah</h1>
                 <p class="text-muted-color mt-2 mb-0">Rekap asesmen berbobot, validasi Prodi, dan publikasi nilai ke KHS.</p>
             </div>
-            <Select v-model="selectedYear" :options="academicYears" optionLabel="nama" optionValue="id" class="w-60" />
+            <div class="flex gap-2"><Button label="Koreksi Nilai" icon="pi pi-history" outlined @click="openCorrections" /><Select v-model="selectedYear" :options="academicYears" optionLabel="nama" optionValue="id" class="w-60" /></div>
         </div>
 
         <Message v-if="error" severity="error" class="mb-4">{{ error }}</Message>
@@ -219,6 +243,7 @@ async function saveScales() {
                     <template #body="{ data }"><Tag :value="data.nilai_huruf || '-'" :severity="data.nilai_huruf ? 'success' : 'warn'" /></template>
                 </Column>
                 <Column field="nilai_indeks" header="Indeks" style="min-width: 90px" />
+                <Column v-if="detail.kelas.status === 'Dipublikasikan' && detail.kelas.can_submit" header="Koreksi" style="min-width: 90px"><template #body="{ data }"><Button icon="pi pi-pencil" text severity="warn" @click="requestCorrection(data)" /></template></Column>
             </DataTable>
 
             <h3 class="mt-6">Riwayat Workflow</h3>
@@ -245,5 +270,21 @@ async function saveScales() {
         </DataTable>
         <Button label="Tambah Rentang" icon="pi pi-plus" text class="mt-3" @click="addScale" />
         <template #footer><Button label="Batal" text @click="scaleVisible = false" /><Button label="Simpan Skala" icon="pi pi-save" :loading="isLoading" @click="saveScales" /></template>
+    </Dialog>
+
+    <Dialog v-model:visible="correctionVisible" modal header="Ajukan Koreksi Nilai" :style="{ width: '520px' }">
+        <p><b>{{ correctionForm.mahasiswa }}</b></p>
+        <label class="block font-bold mb-2">Nilai Angka Baru</label><InputNumber v-model="correctionForm.nilai_angka_baru" :min="0" :max="100" fluid />
+        <label class="block font-bold mt-4 mb-2">Alasan Koreksi</label><Textarea v-model="correctionForm.alasan" rows="4" fluid placeholder="Minimal 10 karakter" />
+        <template #footer><Button label="Batal" text @click="correctionVisible = false" /><Button label="Ajukan" icon="pi pi-send" :disabled="correctionForm.alasan.trim().length < 10" @click="saveCorrection" /></template>
+    </Dialog>
+
+    <Dialog v-model:visible="correctionListVisible" modal maximizable header="Workflow Koreksi Nilai" :style="{ width: '90vw' }">
+        <DataTable :value="corrections" paginator :rows="15" size="small">
+            <Column field="nim" header="NIM" /><Column field="nama_mahasiswa" header="Mahasiswa" /><Column field="kode_mk" header="MK" />
+            <Column header="Perubahan"><template #body="{ data }">{{ data.nilai_angka_lama }} ({{ data.nilai_huruf_lama }}) → {{ data.nilai_angka_baru }} ({{ data.nilai_huruf_baru }})</template></Column>
+            <Column field="alasan" header="Alasan" /><Column header="Status"><template #body="{ data }"><Tag :value="data.status" /></template></Column>
+            <Column header="Aksi"><template #body="{ data }"><div class="flex gap-1"><Button v-if="roles.some(r => ['KAPRODI','SUPER_ADMIN'].includes(r)) && data.status === 'Diajukan'" icon="pi pi-check" text severity="success" @click="reviewCorrection(data, 'Disetujui')" /><Button v-if="roles.some(r => ['KAPRODI','SUPER_ADMIN'].includes(r)) && data.status === 'Diajukan'" icon="pi pi-times" text severity="danger" @click="reviewCorrection(data, 'Ditolak')" /><Button v-if="roles.some(r => ['STAF_AKADEMIK','SUPER_ADMIN'].includes(r)) && data.status === 'Disetujui'" label="Terapkan" size="small" @click="applyCorrection(data)" /></div></template></Column>
+        </DataTable>
     </Dialog>
 </template>

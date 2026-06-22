@@ -175,6 +175,32 @@ mahasiswa lain melalui parameter URL.
 Backend juga memerlukan migration
 `20260621180000_create_nilai_akhir_tables` untuk workflow dan audit nilai akhir.
 
+### Administrasi Akhir Semester
+
+Menu **Akademik → Akhir Semester** tersedia untuk Super Admin dan Staf
+Akademik. Sistem menampilkan jumlah kelas siap/belum siap dan hanya mengaktifkan
+penutupan setelah seluruh kelas bernilai menerbitkan nilai akhirnya. Penutupan:
+
+1. menghitung AKM, IPS, IPK, SKS semester, dan SKS kumulatif;
+2. menandai tahun akademik sebagai `Ditutup`;
+3. membuat outbox `NILAI` dan `AKM` untuk Neo Feeder.
+
+Mahasiswa melihat hasil melalui **Akademik → KHS & Transkrip**. KHS menampilkan
+hasil per semester, sedangkan transkrip sementara menggunakan pengambilan mata
+kuliah terbaru agar mata kuliah yang diulang tidak dihitung dua kali.
+
+Koreksi setelah publikasi menggunakan workflow terpisah:
+
+`Diajukan Koordinator → Disetujui/Ditolak Kaprodi → Diterapkan Staf Akademik`
+
+Penerapan koreksi memperbarui enrollment, menghitung ulang AKM semester asal dan
+semester berikutnya, serta memperbarui outbox Feeder. Pengiriman eksternal tidak
+dilakukan browser; worker/connector deployment mengambil payload outbox agar
+kegagalan jaringan tidak membatalkan transaksi akademik.
+
+Backend memerlukan migration
+`20260622100000_create_akhir_semester_tables` untuk fitur ini.
+
 ## Konfigurasi
 
 | Variabel | Wajib | Keterangan |

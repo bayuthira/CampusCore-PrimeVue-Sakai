@@ -112,6 +112,18 @@ const router = createRouter({
                     meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'Nilai Saya' }
                 },
                 {
+                    path: '/akademik/khs-transkrip',
+                    name: 'khs-transkrip',
+                    component: () => import('@/views/akademik/KhsTranskrip.vue'),
+                    meta: { requiresAuth: true, roles: ['MAHASISWA'], title: 'KHS & Transkrip' }
+                },
+                {
+                    path: '/akademik/akhir-semester',
+                    name: 'akhir-semester',
+                    component: () => import('@/views/akademik/AkhirSemester.vue'),
+                    meta: { requiresAuth: true, roles: ['SUPER_ADMIN', 'STAF_AKADEMIK'], title: 'Akhir Semester' }
+                },
+                {
                     path: '/asesmen/nilai-akhir',
                     name: 'nilai-akhir',
                     component: () => import('@/views/asesmen/NilaiAkhir.vue'),
