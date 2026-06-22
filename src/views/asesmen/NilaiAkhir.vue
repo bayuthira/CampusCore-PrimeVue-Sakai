@@ -257,16 +257,16 @@ async function applyCorrection(row) { try { await akhirStore.applyCorrection(row
         </div>
     </Dialog>
 
-    <Dialog v-model:visible="scaleVisible" modal header="Skala Nilai Program Studi" :style="{ width: '820px' }">
-        <Message severity="info" class="mb-4">Contoh A–E hanya rancangan awal di form. Sesuaikan dengan pedoman akademik sebelum menyimpan.</Message>
-        <DataTable :value="scaleRows" size="small">
-            <Column header="Huruf"><template #body="{ data }"><InputText v-model="data.nilai_huruf" class="w-20" /></template></Column>
-            <Column header="Indeks"><template #body="{ data }"><InputNumber v-model="data.nilai_indeks" :min="0" :max="4" :minFractionDigits="0" :maxFractionDigits="2" class="w-24" /></template></Column>
-            <Column header="Minimum"><template #body="{ data }"><InputNumber v-model="data.bobot_minimum" :min="0" :max="100" :maxFractionDigits="2" class="w-28" /></template></Column>
-            <Column header="Maksimum"><template #body="{ data }"><InputNumber v-model="data.bobot_maksimum" :min="0" :max="100" :maxFractionDigits="2" class="w-28" /></template></Column>
-            <Column header="Mulai Efektif"><template #body="{ data }"><InputText v-model="data.tanggal_mulai_efektif" placeholder="YYYY-MM-DD" class="w-32" /></template></Column>
-            <Column header="Akhir Efektif"><template #body="{ data }"><InputText v-model="data.tanggal_akhir_efektif" placeholder="Opsional" class="w-32" /></template></Column>
-            <Column header="Aksi"><template #body="{ index }"><Button icon="pi pi-trash" text severity="danger" @click="scaleRows.splice(index, 1)" /></template></Column>
+    <Dialog v-model:visible="scaleVisible" modal :header="`Skala Nilai · ${detail?.kelas?.nama_prodi || 'Program Studi'}`" :style="{ width: 'min(1040px, 96vw)' }">
+        <Message severity="info" class="mb-4">Skala ini hanya berlaku untuk {{ detail?.kelas?.nama_prodi }} sesuai periode efektif. Contoh A–E di bawah belum tersimpan; sesuaikan dengan pedoman akademik.</Message>
+        <DataTable :value="scaleRows" size="small" scrollable tableStyle="min-width: 900px">
+            <Column header="Huruf" style="width: 90px"><template #body="{ data }"><InputText v-model="data.nilai_huruf" fluid /></template></Column>
+            <Column header="Indeks" style="width: 110px"><template #body="{ data }"><InputNumber v-model="data.nilai_indeks" :min="0" :max="4" :minFractionDigits="0" :maxFractionDigits="2" fluid /></template></Column>
+            <Column header="Minimum" style="width: 125px"><template #body="{ data }"><InputNumber v-model="data.bobot_minimum" :min="0" :max="100" :maxFractionDigits="2" fluid /></template></Column>
+            <Column header="Maksimum" style="width: 125px"><template #body="{ data }"><InputNumber v-model="data.bobot_maksimum" :min="0" :max="100" :maxFractionDigits="2" fluid /></template></Column>
+            <Column header="Mulai Efektif" style="width: 155px"><template #body="{ data }"><InputText v-model="data.tanggal_mulai_efektif" placeholder="YYYY-MM-DD" fluid /></template></Column>
+            <Column header="Akhir Efektif" style="width: 155px"><template #body="{ data }"><InputText v-model="data.tanggal_akhir_efektif" placeholder="Opsional" fluid /></template></Column>
+            <Column header="Aksi" style="width: 70px"><template #body="{ index }"><Button icon="pi pi-trash" text severity="danger" @click="scaleRows.splice(index, 1)" /></template></Column>
         </DataTable>
         <Button label="Tambah Rentang" icon="pi pi-plus" text class="mt-3" @click="addScale" />
         <template #footer><Button label="Batal" text @click="scaleVisible = false" /><Button label="Simpan Skala" icon="pi pi-save" :loading="isLoading" @click="saveScales" /></template>
